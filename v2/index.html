@@ -78,7 +78,7 @@ textarea{font:inherit;font-size:14.5px;width:100%;margin-top:9px;background:var(
 
   <div class="bar" id="bar" hidden>
     <span id="count"></span>
-    <span><button type="button" id="more">Show 20 more</button>
+    <span><button type="button" id="more">Show more</button>
     <button type="button" id="reload">Refresh</button></span>
   </div>
 
@@ -96,7 +96,7 @@ var NL = String.fromCharCode(10);
    cannot delete, cannot do anything but append call outcomes.               */
 
 /* ------------------------------------------------------------------ state */
-var QUEUE = [], EVENTS = [], tab = 'today', limit = 20, loading = false;
+var QUEUE = [], EVENTS = [], TOTAL = 0, tab = 'today', limit = 40, loading = false;
 var KD = 'wl2done', KQ = 'wl2pending';
 var DONE = {}, PENDING = [];
 try { DONE = JSON.parse(localStorage.getItem(KD) || '{}') || {}; } catch (e) {}
@@ -221,7 +221,7 @@ function load(){
             .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); })
             .catch(function (){ return { events: [] }; });
   Promise.all([q, e]).then(function (res){
-    QUEUE = res[0].queue || [];
+    QUEUE = res[0].queue || []; TOTAL = res[0].total || QUEUE.length;
     EVENTS = res[1].events || [];
     loading = false;
     render();
@@ -293,6 +293,8 @@ function personCard(c){
         : ', guide ' + money(c.nearest_event_price)
           + (c.nearest_event_price_high ? ' to ' + money(c.nearest_event_price_high) : '');
     }
+    // the one thing he reads out on the phone, so it goes on the card
+    if (c.nearest_event_detail) txt += '. ' + c.nearest_event_detail;
     var ne = document.createElement('span');
     ne.className = 'chip addr' + (sold ? ' sold' : '');
     ne.textContent = txt;
@@ -363,23 +365,39 @@ function personCard(c){
   return el;
 }
 
+function detailOf(e){
+  var bits = [];
+  if (e.beds != null)  bits.push(e.beds + ' bed');
+  if (e.baths != null) bits.push(e.baths + ' bath');
+  if (e.cars != null)  bits.push(e.cars + ' car');
+  var s = bits.join(' ');
+  if (e.land_size) s += (s ? ', ' : '') + e.land_size + ' m2';
+  if (e.property_type) s += (s ? ', ' : '') + e.property_type;
+  return s;
+}
+
 function eventRows(kind){
   var box = document.createElement('div');
   box.className = 'card';
-  var rows = EVENTS.filter(function (e){ return (e.event_type || '').toLowerCase() === kind; });
+  var rows = EVENTS.filter(function (e){ return (e.event_type || '').toLowerCase().indexOf(kind) >= 0; });
   if (!rows.length){
     var p = document.createElement('p'); p.className = 'msg';
     p.textContent = kind === 'sold' ? 'No sales recorded yet.' : 'Nothing on the market yet.';
     box.appendChild(p);
     return box;
   }
+  rows.sort(function (a, b){ return (b.price || 0) - (a.price || 0); });
   rows.forEach(function (e){
     var r = document.createElement('div'); r.className = 'ev';
     var a = document.createElement('b');
     a.textContent = titled(((e.street_number || '') + ' ' + (e.street || '')).trim());
-    var p = document.createElement('span'); p.className = 'p'; p.textContent = money(e.price);
+    var px = money(e.price);
+    if (px && e.price_high) px += ' to ' + money(e.price_high);
+    if (!px) px = 'No price shown';
+    var p = document.createElement('span'); p.className = 'p'; p.textContent = px;
     var d = document.createElement('span'); d.className = 'd';
-    d.textContent = [e.suburb, shortDate(e.event_date), e.notes].filter(Boolean).join(' · ');
+    d.textContent = [detailOf(e), e.suburb, shortDate(e.event_date),
+                     e.geo_approx ? 'position approximate' : ''].filter(Boolean).join(' · ');
     r.append(a, p, d);
     box.appendChild(r);
   });
@@ -397,7 +415,8 @@ function render(){
     var pending = QUEUE.filter(function (c){ return !DONE[c.id]; });
     var handled = QUEUE.filter(function (c){ return DONE[c.id]; });
     $('#count').textContent = pending.length + ' to call, ' + handled.length + ' done';
-    $('#sub').textContent = 'Top ' + QUEUE.length + ', reordered daily';
+    $('#more').hidden = QUEUE.length >= TOTAL;
+    $('#sub').textContent = 'Showing ' + QUEUE.length + ' of ' + TOTAL + ', reordered daily';
     if (!QUEUE.length){
       var p = document.createElement('p'); p.className = 'msg'; p.textContent = 'Nothing due today.';
       list.appendChild(p);
@@ -421,7 +440,7 @@ $('#tabs').addEventListener('click', function (ev){
   });
   render();
 });
-$('#more').addEventListener('click', function (){ limit += 20; load(); });
+$('#more').addEventListener('click', function (){ limit = limit >= 200 ? 2000 : limit + 80; load(); });
 $('#reload').addEventListener('click', function (){ load(); });
 
 push();
