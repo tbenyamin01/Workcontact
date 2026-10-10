@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Work list</title>
+<style>
+:root{
+  --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
+  --accent:#1F3656;--on-accent:#fff;--brass:#94722F;--brass-soft:#F1E9D8;--good:#2F6B4F;--warn:#9A561A;--hot:#B3261E;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0D131A;--surface:#151D26;--surface-2:#1B2530;--ink:#E6E9ED;--muted:#9AA4B0;--line:#27323E;
+  --accent:#A9C1E0;--on-accent:#0D131A;--brass:#D1B173;--brass-soft:#2B2619;--good:#85C9A5;--warn:#E3A66C;--hot:#F2B8B5;}}
+*{box-sizing:border-box}
+html,body{overflow-x:hidden}
+body{margin:0;background:var(--ground);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+     padding:0 16px calc(28px + env(safe-area-inset-bottom,0px));-webkit-font-smoothing:antialiased}
+.wrap{max-width:620px;margin:0 auto}
+header{padding:18px 0 10px;display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+h1{font-size:22px;margin:0;font-weight:600}
+.sub{font-size:12.5px;color:var(--muted)}
+.tabs{display:flex;gap:6px;margin:8px 0 14px;overflow-x:auto;padding-bottom:2px}
+.tabs button{flex:none;font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--surface-2);
+  color:var(--ink);border-radius:999px;padding:8px 15px;cursor:pointer;white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.card.done{opacity:.52}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.nm{font-size:17px;font-weight:600;line-height:1.25}
+.ad{font-size:13.5px;color:var(--muted);margin-top:1px}
+.chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.chip{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:6px;
+  border:1px solid var(--line);color:var(--muted);background:var(--surface-2)}
+.chip.hot{color:var(--on-accent);background:var(--hot);border-color:var(--hot)}
+.chip.warm{color:var(--ink);background:var(--brass-soft);border-color:var(--brass)}
+.chip.why{color:var(--brass);border-color:var(--brass);background:transparent}
+.chip.addr{text-transform:none;letter-spacing:0;font-weight:600}
+.chip.addr.sold{color:var(--good);border-color:var(--good)}
+.score{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted);flex:none}
+.note{font-size:13.5px;color:var(--muted);margin-top:9px;white-space:pre-wrap;word-break:break-word}
+.note.clip{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.more{font-size:12.5px;color:var(--brass);background:none;border:0;padding:4px 0;cursor:pointer;font-weight:600}
+.btns{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
+a.b,button.b{flex:1 1 0;min-width:110px;text-align:center;text-decoration:none;font:inherit;font-size:15px;font-weight:600;
+  border:1px solid var(--line);background:var(--surface-2);color:var(--ink);border-radius:11px;padding:12px 10px;cursor:pointer}
+a.b.call{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.outs{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.outs button{flex:1 1 auto;font:inherit;font-size:13.5px;font-weight:600;border:1px solid var(--line);background:var(--surface-2);
+  color:var(--ink);border-radius:10px;padding:10px 8px;cursor:pointer}
+.outs button.on{background:var(--brass);border-color:var(--brass);color:#fff}
+textarea{font:inherit;font-size:14.5px;width:100%;margin-top:9px;background:var(--surface-2);color:var(--ink);
+  border:1px solid var(--line);border-radius:10px;padding:10px;min-height:60px;resize:vertical}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;font-size:12.5px;color:var(--muted)}
+.bar button{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);background:var(--surface-2);
+  color:var(--ink);border-radius:9px;padding:7px 12px;cursor:pointer}
+.msg{font-size:14px;color:var(--muted);padding:26px 0;text-align:center}
+.err{color:var(--warn)}
+.ev{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:12px 0;border-top:1px solid var(--line)}
+.ev:first-child{border-top:0}
+.ev b{font-weight:600}
+.ev .p{font-variant-numeric:tabular-nums;font-weight:600}
+.ev .d{font-size:12.5px;color:var(--muted);grid-column:1/3}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1>Work list</h1><div class="sub" id="sub">Loading</div></div>
+    <div class="sub" id="sync"></div>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <button type="button" data-tab="today" aria-selected="true">Today</button>
+    <button type="button" data-tab="sold" aria-selected="false">Just sold</button>
+    <button type="button" data-tab="listed" aria-selected="false">Just listed</button>
+  </div>
+
+  <div class="bar" id="bar" hidden>
+    <span id="count"></span>
+    <span><button type="button" id="more">Show 20 more</button>
+    <button type="button" id="reload">Refresh</button></span>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+<script>
+/* ------------------------------------------------------------------ config */
+var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
+var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
+var NL = String.fromCharCode(10);
+
+/* The token is the only gate, and the page is public, so the endpoint is
+   built to hand out nothing but the queue. It cannot read the contact table,
+   cannot delete, cannot do anything but append call outcomes.               */
+
+/* ------------------------------------------------------------------ state */
+var QUEUE = [], EVENTS = [], tab = 'today', limit = 20, loading = false;
+var KD = 'wl2done', KQ = 'wl2pending';
+var DONE = {}, PENDING = [];
+try { DONE = JSON.parse(localStorage.getItem(KD) || '{}') || {}; } catch (e) {}
+try { PENDING = JSON.parse(localStorage.getItem(KQ) || '[]') || []; } catch (e) {}
+
+function save(){
+  try {
+    localStorage.setItem(KD, JSON.stringify(DONE));
+    localStorage.setItem(KQ, JSON.stringify(PENDING));
+  } catch (e) {}
+}
+function today(){
+  var d = new Date();
+  return d.getFullYear() + '-' + ('0' + (d.getMonth()+1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+function $(s){ return document.querySelector(s); }
+
+/* yesterday's ticks are not today's work */
+(function prune(){
+  var t = today(), changed = false;
+  Object.keys(DONE).forEach(function (k){ if (DONE[k].day !== t) { delete DONE[k]; changed = true; } });
+  if (changed) save();
+})();
+
+/* ------------------------------------------------------------------ people */
+function first(c){ return (c.first_name || '').split(' ')[0] || 'there'; }
+function titled(s){
+  return (s || '').toLowerCase().replace(/\b[a-z]/g, function (m){ return m.toUpperCase(); });
+}
+function fullName(c){
+  var n = titled(((c.first_name || '') + ' ' + (c.last_name || '')).trim());
+  return n || 'No name';
+}
+function address(c){
+  return titled(((c.street_number || '') + ' ' + (c.street || '')).trim()) + (c.suburb ? ', ' + c.suburb : '');
+}
+function money(v){
+  return v ? '$' + Number(v).toLocaleString('en-AU') : '';
+}
+function shortDate(d){
+  if (!d) return '';
+  var p = d.split('-'), dt = new Date(+p[0], +p[1]-1, +p[2]);
+  return dt.getDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt.getMonth()];
+}
+
+/* ------------------------------------------------------------------ messages
+   Thomas's own wording. Do not reword these. No dashes anywhere.            */
+function missedMsg(c){
+  return 'Hey ' + titled(first(c)) + ',' + NL
+       + 'I tried to give you a call.' + NL + NL
+       + 'A few places near you have just sold or come up for sale. That moves what your place '
+       + 'is worth, even when nothing looks different on your street.' + NL + NL
+       + 'Happy to tell you what it did to your number if you want it.' + NL + NL
+       + 'And if this is not you, or you have moved, just say so and I will take you off my list.' + NL + NL
+       + 'Kind regards' + NL
+       + 'Thomas Benyamin, Ausrealty';
+}
+function thanksMsg(c){
+  return 'Hi ' + titled(first(c)) + ',' + NL
+       + 'Appreciate your time on the phone.' + NL + NL
+       + 'Let me know if I can be of any further help to you, or to family and friends.' + NL + NL
+       + 'Warm regards' + NL
+       + 'Thomas Benyamin, Ausrealty';
+}
+function smsHref(phone, body){
+  var n = (phone || '').replace(/[^\d+]/g, '');
+  var sep = /iPhone|iPad|Macintosh/i.test(navigator.userAgent) ? '&' : '?';
+  return 'sms:' + n + sep + 'body=' + encodeURIComponent(body);
+}
+
+/* ------------------------------------------------------------------ outcomes */
+var OUTS = [
+  { k: 'noanswer', t: 'No answer' },
+  { k: 'notint',   t: 'Not interested' },
+  { k: 'callback', t: 'Call back' },
+  { k: 'wrong',    t: 'Wrong number' },
+  { k: 'booked',   t: 'Appraisal booked' }
+];
+
+function logOutcome(c, out, note){
+  var stamp = new Date();
+  var d = stamp.getDate() + '/' + (stamp.getMonth()+1) + '/' + stamp.getFullYear();
+  DONE[c.id] = { day: today(), out: out.k, label: out.t, note: note || '' };
+  PENDING.push({
+    contact_id: c.id,
+    outcome: out.t,
+    note: (note ? note + '  ' : '') + 'TB- ' + out.t + ' ' + d,
+    at: stamp.toISOString()
+  });
+  save(); push(); render();
+}
+
+/* ------------------------------------------------------------------ network */
+function push(){
+  if (!PENDING.length || !navigator.onLine) { syncTag(); return; }
+  var batch = PENDING.slice(0, 100);
+  syncTag();
+  fetch(API + '?t=' + encodeURIComponent(TOKEN), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ rows: batch })
+  }).then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function (){
+      PENDING = PENDING.slice(batch.length);
+      save(); syncTag();
+      if (PENDING.length) push();
+    }, function (){ syncTag(); });
+}
+function syncTag(){
+  $('#sync').textContent = PENDING.length ? PENDING.length + ' to send' : (navigator.onLine ? '' : 'Offline');
+}
+window.addEventListener('online', push);
+setInterval(push, 60000);
+
+function load(){
+  if (loading) return;
+  loading = true;
+  $('#sub').textContent = 'Loading';
+  var q = fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&limit=' + limit)
+            .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); });
+  var e = fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&events=1')
+            .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); })
+            .catch(function (){ return { events: [] }; });
+  Promise.all([q, e]).then(function (res){
+    QUEUE = res[0].queue || [];
+    EVENTS = res[1].events || [];
+    loading = false;
+    render();
+  }, function (status){
+    loading = false;
+    $('#sub').innerHTML = '';
+    $('#list').innerHTML = '';
+    var p = document.createElement('p');
+    p.className = 'msg err';
+    p.textContent = status === 401
+      ? 'This page is not authorised any more. The token was changed.'
+      : 'Could not reach the list. Check your signal and tap Refresh.';
+    $('#list').appendChild(p);
+    $('#sub').textContent = 'Not loaded';
+  });
+}
+
+/* ------------------------------------------------------------------ render */
+/* The importer stamped every note with where the row came from. Useful in the
+   database, pure noise on a card you read while the phone is ringing.        */
+function cleanNote(s){
+  if (!s) return '';
+  return s.replace(/From Wattle Grove COLD CALL sheet[^|]*(\||$)/gi, '')
+          .replace(/Cold call list, not yet contacted/gi, '')
+          .replace(/From the master cold call sheet/gi, '')
+          .replace(/\s*\|\s*/g, '  ')
+          .replace(/\s{3,}/g, '  ')
+          .trim();
+}
+
+function bandChip(b){
+  var u = (b || '').toUpperCase();
+  var s = document.createElement('span');
+  s.className = 'chip' + (u === 'HOT' ? ' hot' : u === 'WARM' ? ' warm' : '');
+  s.textContent = u === 'NURTURE' ? 'PROSPECT' : (u || 'PROSPECT');
+  return s;
+}
+
+function personCard(c){
+  var el = document.createElement('div');
+  var done = DONE[c.id];
+  el.className = 'card' + (done ? ' done' : '');
+
+  var top = document.createElement('div');
+  top.className = 'top';
+  var who = document.createElement('div');
+  var nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = fullName(c);
+  var ad = document.createElement('div'); ad.className = 'ad'; ad.textContent = address(c);
+  who.append(nm, ad);
+  var sc = document.createElement('div'); sc.className = 'score'; sc.textContent = c.score;
+  top.append(who, sc);
+  el.appendChild(top);
+
+  var chips = document.createElement('div');
+  chips.className = 'chips';
+  chips.appendChild(bandChip(c.band));
+  if (c.reason){
+    var why = document.createElement('span'); why.className = 'chip why'; why.textContent = c.reason;
+    chips.appendChild(why);
+  }
+  if (c.nearest_event_addr){
+    // Say sold or listed, every time. A guide is not a sale and quoting one
+    // as a sale on the phone is the fastest way to lose a vendor.
+    var sold = c.nearest_event_kind === 'sold';
+    var txt = (sold ? 'Sold ' : 'For sale ') + titled(c.nearest_event_addr);
+    if (c.nearest_event_price){
+      txt += sold
+        ? ' ' + money(c.nearest_event_price)
+        : ', guide ' + money(c.nearest_event_price)
+          + (c.nearest_event_price_high ? ' to ' + money(c.nearest_event_price_high) : '');
+    }
+    var ne = document.createElement('span');
+    ne.className = 'chip addr' + (sold ? ' sold' : '');
+    ne.textContent = txt;
+    chips.appendChild(ne);
+    if (c.nearest_event_approx){
+      var ap = document.createElement('span'); ap.className = 'chip';
+      ap.textContent = 'Distance approximate';
+      chips.appendChild(ap);
+    }
+  }
+  if (c.consecutive_no_answer > 2){
+    var na = document.createElement('span'); na.className = 'chip';
+    na.textContent = c.consecutive_no_answer + ' no answers in a row';
+    chips.appendChild(na);
+  }
+  if (done){
+    var dn = document.createElement('span'); dn.className = 'chip'; dn.textContent = 'Done: ' + done.label;
+    chips.appendChild(dn);
+  }
+  el.appendChild(chips);
+
+  var noteText = cleanNote(c.notes);
+  if (noteText){
+    var n = document.createElement('div');
+    n.className = 'note clip';
+    n.textContent = noteText;
+    el.appendChild(n);
+    if (noteText.length > 150){
+      var mb = document.createElement('button');
+      mb.type = 'button'; mb.className = 'more'; mb.textContent = 'Read all';
+      mb.addEventListener('click', function (){
+        var open = !n.classList.contains('clip');
+        n.classList.toggle('clip', !open ? true : false);
+        n.classList.toggle('clip');
+        mb.textContent = n.classList.contains('clip') ? 'Read all' : 'Less';
+      });
+      el.appendChild(mb);
+    }
+  }
+
+  var btns = document.createElement('div');
+  btns.className = 'btns';
+  var call = document.createElement('a');
+  call.className = 'b call'; call.href = 'tel:' + (c.mobile || '').replace(/[^\d+]/g, '');
+  call.textContent = 'Call ' + (c.mobile || '');
+  var txt = document.createElement('a');
+  txt.className = 'b';
+  txt.href = smsHref(c.mobile, done && done.out !== 'noanswer' ? thanksMsg(c) : missedMsg(c));
+  txt.textContent = 'Text';
+  btns.append(call, txt);
+  el.appendChild(btns);
+
+  var outs = document.createElement('div');
+  outs.className = 'outs';
+  var box = document.createElement('textarea');
+  box.placeholder = 'What was said';
+  box.value = done ? done.note : '';
+
+  OUTS.forEach(function (o){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = done && done.out === o.k ? 'on' : '';
+    b.textContent = o.t;
+    b.addEventListener('click', function (){ logOutcome(c, o, box.value.trim()); });
+    outs.appendChild(b);
+  });
+  el.append(outs, box);
+  return el;
+}
+
+function eventRows(kind){
+  var box = document.createElement('div');
+  box.className = 'card';
+  var rows = EVENTS.filter(function (e){ return (e.event_type || '').toLowerCase() === kind; });
+  if (!rows.length){
+    var p = document.createElement('p'); p.className = 'msg';
+    p.textContent = kind === 'sold' ? 'No sales recorded yet.' : 'Nothing on the market yet.';
+    box.appendChild(p);
+    return box;
+  }
+  rows.forEach(function (e){
+    var r = document.createElement('div'); r.className = 'ev';
+    var a = document.createElement('b');
+    a.textContent = titled(((e.street_number || '') + ' ' + (e.street || '')).trim());
+    var p = document.createElement('span'); p.className = 'p'; p.textContent = money(e.price);
+    var d = document.createElement('span'); d.className = 'd';
+    d.textContent = [e.suburb, shortDate(e.event_date), e.notes].filter(Boolean).join(' · ');
+    r.append(a, p, d);
+    box.appendChild(r);
+  });
+  return box;
+}
+
+function render(){
+  var list = $('#list');
+  list.textContent = '';
+  syncTag();
+
+  if (tab === 'today'){
+    $('#bar').hidden = false;
+    // anyone already handled today drops to the bottom, and stays put while you work
+    var pending = QUEUE.filter(function (c){ return !DONE[c.id]; });
+    var handled = QUEUE.filter(function (c){ return DONE[c.id]; });
+    $('#count').textContent = pending.length + ' to call, ' + handled.length + ' done';
+    $('#sub').textContent = 'Top ' + QUEUE.length + ', reordered daily';
+    if (!QUEUE.length){
+      var p = document.createElement('p'); p.className = 'msg'; p.textContent = 'Nothing due today.';
+      list.appendChild(p);
+      return;
+    }
+    pending.concat(handled).forEach(function (c){ list.appendChild(personCard(c)); });
+  } else {
+    $('#bar').hidden = true;
+    $('#sub').textContent = EVENTS.length + ' properties tracked';
+    list.appendChild(eventRows(tab));
+  }
+}
+
+/* ------------------------------------------------------------------ wiring */
+$('#tabs').addEventListener('click', function (ev){
+  var b = ev.target.closest('button[data-tab]');
+  if (!b) return;
+  tab = b.dataset.tab;
+  Array.prototype.forEach.call(this.querySelectorAll('button'), function (x){
+    x.setAttribute('aria-selected', x === b ? 'true' : 'false');
+  });
+  render();
+});
+$('#more').addEventListener('click', function (){ limit += 20; load(); });
+$('#reload').addEventListener('click', function (){ load(); });
+
+push();
+load();
+</script>
+</body>
+</html>
