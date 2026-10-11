@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-11c -->
+<!-- build 2026-10-12a -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -258,18 +258,27 @@ function load(){
             .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); })
             .catch(function (){ return { events: [] }; });
   Promise.all([q, e]).then(function (res){
+    load.retried = false;
     QUEUE = res[0].queue || []; TOTAL = res[0].total || QUEUE.length;
     EVENTS = res[1].events || [];
     loading = false;
     render();
   }, function (status){
     loading = false;
-    $('#sub').innerHTML = '';
-    $('#list').innerHTML = '';
+    // One silent retry. A redeploy or a cold start fails for a few seconds and
+    // that is not worth a frightening message.
+    if (!load.retried){
+      load.retried = true;
+      setTimeout(load, 2500);
+      $('#sub').textContent = 'Retrying';
+      return;
+    }
+    load.retried = false;
+    $('#list').textContent = '';
     var p = document.createElement('p');
     p.className = 'msg err';
     p.textContent = status === 401
-      ? 'This page is not authorised any more. The token was changed.'
+      ? 'The list refused this page twice. Tell Claude, the token may have been rotated.'
       : 'Could not reach the list. Check your signal and tap Refresh.';
     $('#list').appendChild(p);
     $('#sub').textContent = 'Not loaded';
@@ -458,7 +467,13 @@ function eventRows(kind){
     box.appendChild(p);
     return box;
   }
-  rows.sort(function (a, b){ return (b.reach || 0) - (a.reach || 0); });
+  // Newest first. He wants to be the first agent on the phone when something
+  // sells, so a big sale from August must not sit above yesterday's.
+  rows.sort(function (a, b){
+    var da = a.event_date || a.first_seen || '', db = b.event_date || b.first_seen || '';
+    if (da !== db) return da < db ? 1 : -1;
+    return (b.reach || 0) - (a.reach || 0);
+  });
   rows.forEach(function (e){
     var r = document.createElement('button');
     r.type = 'button'; r.className = 'ev evbtn';
@@ -469,10 +484,11 @@ function eventRows(kind){
     if (!px) px = 'No price shown';
     var p = document.createElement('span'); p.className = 'p'; p.textContent = px;
     var d = document.createElement('span'); d.className = 'd';
-    d.textContent = [detailOf(e), e.suburb, shortDate(e.event_date),
+    d.textContent = [detailOf(e), e.suburb,
                      e.geo_approx ? 'position approximate' : ''].filter(Boolean).join(' · ');
     var go = document.createElement('span'); go.className = 'go';
-    go.textContent = (e.reach || 0) + ' to call';
+    go.textContent = [shortDate(e.event_date), e.status && e.status !== 'For sale' ? e.status : '',
+                      (e.reach || 0) + ' to call'].filter(Boolean).join('  ·  ');
     r.append(a, p, d, go);
     r.addEventListener('click', function (){ openProperty(e); });
     box.appendChild(r);
