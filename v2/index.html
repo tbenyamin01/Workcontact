@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-12e -->
+<!-- build 2026-10-12f -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -260,7 +260,7 @@ function logOutcome(c, out, note){
       .replace(/^TB-\s*/i, '')
       .replace(new RegExp('\s*' + d.replace(/\//g, '\/') + '\s*$'), '')
       .trim();
-  var line = ('TB- ' + out.t + (said ? ' ' + said : '') + ' ' + d).replace(/\s{2,}/g, ' ');
+  var line = ('TB- ' + out.t + (said ? ', ' + said : '') + ' ' + d).replace(/\s{2,}/g, ' ');
   DONE[c.id] = { day: today(), out: out.k, label: out.t, note: line };
   PENDING.push({
     contact_id: c.id,
@@ -389,14 +389,16 @@ function personCard(c, ev){
     if (showSold){
       txt = 'Sold ' + titled(c.sold_addr)
           + (c.sold_price ? ' ' + money(c.sold_price) : '')
-          + (c.sold_detail ? '. ' + c.sold_detail : '');
+          + (c.sold_detail ? '. ' + c.sold_detail : '')
+          + (c.sold_m > 200 ? '. ' + c.sold_m + ' m away' : '');
       cls = ' sold';
     } else {
       txt = (c.listed_status && c.listed_status !== 'For sale' ? c.listed_status + ' ' : 'For sale ')
           + titled(c.listed_addr)
           + (c.listed_price ? ', guide ' + money(c.listed_price)
               + (c.listed_price_high ? ' to ' + money(c.listed_price_high) : '') : '')
-          + (c.listed_detail ? '. ' + c.listed_detail : '');
+          + (c.listed_detail ? '. ' + c.listed_detail : '')
+          + (c.listed_m > 200 ? '. ' + c.listed_m + ' m away' : '');
       cls = '';
     }
     var ne = document.createElement('span');
