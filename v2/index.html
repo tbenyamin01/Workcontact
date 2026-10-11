@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-12a -->
+<!-- build 2026-10-12b -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -32,6 +32,8 @@ h1{font-size:22px;margin:0;font-weight:600}
 .card.verified{border-left:3px solid var(--good)}
 .chip.ok{color:var(--good);border-color:var(--good)}
 a.b.conf,button.b.conf{flex:1 1 100%;font-size:14px}
+a.b.txt{flex:1 1 46%;font-size:14px}
+a.b.txt.sold{border-color:var(--good);color:var(--good)}
 button.b.conf.on{background:var(--brass-soft);border-color:var(--good);color:var(--ink)}
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .nm{font-size:17px;font-weight:600;line-height:1.25}
@@ -194,6 +196,31 @@ function propMsg(c, e){
        + 'Thomas, Ausrealty.';
 }
 
+function dmy(){
+  var d = new Date();
+  return d.getDate() + '/' + (d.getMonth()+1) + '/' + d.getFullYear();
+}
+
+// The sale nearest this contact, straight off their own card.
+function soldNearMsg(c){
+  return 'Hi ' + titled(first(c)) + ', ' + titled(c.sold_addr) + ' just sold'
+       + (c.sold_price ? ' for ' + money(c.sold_price) : '')
+       + (c.sold_detail ? '. ' + c.sold_detail : '')
+       + '. One of the closest recent sales to you so worth knowing. '
+       + 'Nothing needed from your end. Thomas, Ausrealty.';
+}
+
+// The listing nearest this contact. This is the one he promised Paul Royston.
+function listedNearMsg(c){
+  var px = c.listed_price
+    ? '. Guiding ' + money(c.listed_price) + (c.listed_price_high ? ' to ' + money(c.listed_price_high) : '')
+    : '';
+  return 'Hi ' + titled(first(c)) + ', ' + titled(c.listed_addr) + ' has just come on the market'
+       + (c.listed_detail ? '. ' + c.listed_detail : '') + px
+       + '. One of the closest comparables to your place, worth watching what it sells for. '
+       + 'Thomas, Ausrealty.';
+}
+
 function smsHref(phone, body){
   var n = (phone || '').replace(/[^\d+]/g, '');
   var sep = /iPhone|iPad|Macintosh/i.test(navigator.userAgent) ? '&' : '?';
@@ -210,14 +237,19 @@ var OUTS = [
 ];
 
 function logOutcome(c, out, note){
-  var stamp = new Date();
-  var d = stamp.getDate() + '/' + (stamp.getMonth()+1) + '/' + stamp.getFullYear();
-  DONE[c.id] = { day: today(), out: out.k, label: out.t, note: note || '' };
+  var d = dmy();
+  // His own format, from his own sheet: TB- <outcome> <what was said> <date>
+  var said = (note || '')
+      .replace(/^TB-\s*/i, '')
+      .replace(new RegExp('\s*' + d.replace(/\//g, '\/') + '\s*$'), '')
+      .trim();
+  var line = ('TB- ' + out.t + (said ? ' ' + said : '') + ' ' + d).replace(/\s{2,}/g, ' ');
+  DONE[c.id] = { day: today(), out: out.k, label: out.t, note: line };
   PENDING.push({
     contact_id: c.id,
     outcome: out.t,
-    note: (note ? note + '  ' : '') + 'TB- ' + out.t + ' ' + d,
-    at: stamp.toISOString()
+    note: line,
+    at: new Date().toISOString()
   });
   save(); push(); render();
 }
@@ -399,19 +431,41 @@ function personCard(c, ev){
     }
   }
 
+  var box = document.createElement('textarea');
+  box.placeholder = 'What was said';
+
   var btns = document.createElement('div');
   btns.className = 'btns';
   var call = document.createElement('a');
   call.className = 'b call'; call.href = 'tel:' + (c.mobile || '').replace(/[^\d+]/g, '');
   call.textContent = 'Call ' + (c.mobile || '');
-  var txt = document.createElement('a');
-  txt.className = 'b';
-  txt.href = smsHref(c.mobile,
-      done && done.out !== 'noanswer' ? thanksMsg(c)
-    : ev ? propMsg(c, ev)
-    : missedMsg(c));
-  txt.textContent = ev ? 'Text about this sale' : 'Text';
-  btns.append(call, txt);
+  // Tapping Call lays out the note the way he writes them: TB- then what was
+  // said, then today's date. The outcome drops into the gap when he taps one.
+  call.addEventListener('click', function (){
+    if (!box.value.trim()) box.value = 'TB-  ' + dmy();
+    setTimeout(function (){
+      try { box.focus(); box.setSelectionRange(4, 4); } catch (e) {}
+    }, 50);
+  });
+  btns.appendChild(call);
+
+  function textBtn(label, body, cls){
+    var a = document.createElement('a');
+    a.className = 'b txt' + (cls ? ' ' + cls : '');
+    a.href = smsHref(c.mobile, body);
+    a.textContent = label;
+    btns.appendChild(a);
+  }
+
+  if (ev){
+    // opened from a property, so that property is the only text that makes sense
+    textBtn('Text about this one', propMsg(c, ev));
+  } else {
+    textBtn(done && done.out !== 'noanswer' ? 'Text: thanks for your time' : 'Text: I tried to call',
+            done && done.out !== 'noanswer' ? thanksMsg(c) : missedMsg(c));
+    if (c.sold_addr)   textBtn('Text: ' + titled(c.sold_addr) + ' sold', soldNearMsg(c), 'sold');
+    if (c.listed_addr) textBtn('Text: ' + titled(c.listed_addr) + ' for sale', listedNearMsg(c));
+  }
   el.appendChild(btns);
 
   // Confirm data: he has actually spoken to them, so the name and address are
@@ -430,9 +484,7 @@ function personCard(c, ev){
 
   var outs = document.createElement('div');
   outs.className = 'outs';
-  var box = document.createElement('textarea');
-  box.placeholder = 'What was said';
-  box.value = done ? done.note : '';
+  if (done) box.value = done.note;
 
   OUTS.forEach(function (o){
     var b = document.createElement('button');
