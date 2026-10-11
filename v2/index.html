@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-12b -->
+<!-- build 2026-10-12c -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -361,28 +361,31 @@ function personCard(c, ev){
     var why = document.createElement('span'); why.className = 'chip why'; why.textContent = c.reason;
     chips.appendChild(why);
   }
-  if (c.nearest_event_addr){
-    // Say sold or listed, every time. A guide is not a sale and quoting one
-    // as a sale on the phone is the fastest way to lose a vendor.
-    var sold = c.nearest_event_kind === 'sold';
-    var txt = (sold ? 'Sold ' : 'For sale ') + titled(c.nearest_event_addr);
-    if (c.nearest_event_price){
-      txt += sold
-        ? ' ' + money(c.nearest_event_price)
-        : ', guide ' + money(c.nearest_event_price)
-          + (c.nearest_event_price_high ? ' to ' + money(c.nearest_event_price_high) : '');
+  // The most recent thing that happened near them, sold or listed, whichever
+  // is fresher, with its full description. This is what he reads out on the
+  // phone, so it has to say which it is. A guide is not a sale.
+  var sd = c.sold_date || '', ld = c.listed_date || '';
+  var showSold = c.sold_addr && (!c.listed_addr || sd >= ld);
+  var showList = c.listed_addr && !showSold;
+  if (showSold || showList){
+    var txt, cls;
+    if (showSold){
+      txt = 'Sold ' + titled(c.sold_addr)
+          + (c.sold_price ? ' ' + money(c.sold_price) : '')
+          + (c.sold_detail ? '. ' + c.sold_detail : '');
+      cls = ' sold';
+    } else {
+      txt = (c.listed_status && c.listed_status !== 'For sale' ? c.listed_status + ' ' : 'For sale ')
+          + titled(c.listed_addr)
+          + (c.listed_price ? ', guide ' + money(c.listed_price)
+              + (c.listed_price_high ? ' to ' + money(c.listed_price_high) : '') : '')
+          + (c.listed_detail ? '. ' + c.listed_detail : '');
+      cls = '';
     }
-    // the one thing he reads out on the phone, so it goes on the card
-    if (c.nearest_event_detail) txt += '. ' + c.nearest_event_detail;
     var ne = document.createElement('span');
-    ne.className = 'chip addr' + (sold ? ' sold' : '');
+    ne.className = 'chip addr' + cls;
     ne.textContent = txt;
     chips.appendChild(ne);
-    if (c.nearest_event_approx){
-      var ap = document.createElement('span'); ap.className = 'chip';
-      ap.textContent = 'Distance approximate';
-      chips.appendChild(ap);
-    }
   }
   if (ev && c.metres > 0){
     var dm = document.createElement('span'); dm.className = 'chip';
