@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-12f -->
+<!-- build 2026-10-12g -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -378,34 +378,39 @@ function personCard(c, ev){
     var why = document.createElement('span'); why.className = 'chip why'; why.textContent = c.reason;
     chips.appendChild(why);
   }
-  // The most recent thing that happened near them, sold or listed, whichever
-  // is fresher, with its full description. This is what he reads out on the
-  // phone, so it has to say which it is. A guide is not a sale.
-  var sd = c.sold_date || '', ld = c.listed_date || '';
-  var showSold = c.sold_addr && (!c.listed_addr || sd >= ld);
-  var showList = c.listed_addr && !showSold;
-  if (showSold || showList){
-    var txt, cls;
-    if (showSold){
-      txt = 'Sold ' + titled(c.sold_addr)
-          + (c.sold_price ? ' ' + money(c.sold_price) : '')
-          + (c.sold_detail ? '. ' + c.sold_detail : '')
-          + (c.sold_m > 200 ? '. ' + c.sold_m + ' m away' : '');
-      cls = ' sold';
-    } else {
-      txt = (c.listed_status && c.listed_status !== 'For sale' ? c.listed_status + ' ' : 'For sale ')
-          + titled(c.listed_addr)
-          + (c.listed_price ? ', guide ' + money(c.listed_price)
-              + (c.listed_price_high ? ' to ' + money(c.listed_price_high) : '') : '')
-          + (c.listed_detail ? '. ' + c.listed_detail : '')
-          + (c.listed_m > 200 ? '. ' + c.listed_m + ' m away' : '');
-      cls = '';
+  // Every property he can text about gets its own line, with the full
+  // description. Rod Lynch had a sale at 0 m and a listing at 490 m, and the
+  // card was showing him the far one because it was listed more recently.
+  function propChip(kind, addr, price, priceHigh, detail, metres, status){
+    if (!addr) return;
+    var sold = kind === 'sold';
+    var txt = (sold ? 'Sold ' : ((status && status !== 'For sale') ? status + ' ' : 'For sale '))
+            + titled(addr);
+    if (price){
+      txt += sold ? ' ' + money(price)
+                  : ', guide ' + money(price) + (priceHigh ? ' to ' + money(priceHigh) : '');
     }
-    var ne = document.createElement('span');
-    ne.className = 'chip addr' + cls;
-    ne.textContent = txt;
-    chips.appendChild(ne);
+    if (detail) txt += '. ' + detail;
+    if (metres != null) txt += '. ' + (metres < 30 ? 'same street' : metres + ' m away');
+    var s = document.createElement('span');
+    s.className = 'chip addr' + (sold ? ' sold' : '');
+    s.textContent = txt;
+    chips.appendChild(s);
   }
+
+  // nearest first, because a sale on their own street beats a newer one
+  // three streets over
+  var props = [];
+  if (c.sold_addr)   props.push({ k:'sold',   m: c.sold_m });
+  if (c.listed_addr) props.push({ k:'listed', m: c.listed_m });
+  props.sort(function (a, b){ return (a.m == null ? 9999 : a.m) - (b.m == null ? 9999 : b.m); });
+  props.forEach(function (x){
+    if (x.k === 'sold')
+      propChip('sold', c.sold_addr, c.sold_price, null, c.sold_detail, c.sold_m, null);
+    else
+      propChip('listed', c.listed_addr, c.listed_price, c.listed_price_high,
+               c.listed_detail, c.listed_m, c.listed_status);
+  });
   if (ev && c.metres > 0){
     var dm = document.createElement('span'); dm.className = 'chip';
     dm.textContent = c.metres + ' m away';
@@ -490,12 +495,18 @@ function personCard(c, ev){
     textBtn(thanks ? 'Text: thanks for your time' : 'Text: I tried to call',
             thanks ? thanksMsg(c) : missedMsg(c), '',
             'texted');
-    if (c.sold_addr)
-      textBtn('Text: ' + titled(c.sold_addr) + ' sold', soldNearMsg(c), 'sold',
-              'texted re ' + titled(c.sold_addr) + ' sold');
-    if (c.listed_addr)
-      textBtn('Text: ' + titled(c.listed_addr) + ' for sale', listedNearMsg(c), '',
-              'texted re ' + titled(c.listed_addr) + ' for sale');
+    var order = [];
+    if (c.sold_addr)   order.push({ k:'sold',   m: c.sold_m == null ? 9999 : c.sold_m });
+    if (c.listed_addr) order.push({ k:'listed', m: c.listed_m == null ? 9999 : c.listed_m });
+    order.sort(function (a, b){ return a.m - b.m; });
+    order.forEach(function (x){
+      if (x.k === 'sold')
+        textBtn('Text: ' + titled(c.sold_addr) + ' sold', soldNearMsg(c), 'sold',
+                'texted re ' + titled(c.sold_addr) + ' sold');
+      else
+        textBtn('Text: ' + titled(c.listed_addr) + ' for sale', listedNearMsg(c), '',
+                'texted re ' + titled(c.listed_addr) + ' for sale');
+    });
   }
   el.appendChild(btns);
 
