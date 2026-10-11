@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-12c -->
+<!-- build 2026-10-12e -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -194,6 +194,23 @@ function propMsg(c, e){
        + (e.price ? '. Guiding ' + money(e.price) + (e.price_high ? ' to ' + money(e.price_high) : '') : '')
        + '. One of the closest comparables to your place, worth watching what it sells for. '
        + 'Thomas, Ausrealty.';
+}
+
+// Keeps the note in his shape: TB- <what happened> <today>. Anything new
+// goes in the middle, never duplicated, so tapping a text button twice does
+// not write it twice.
+function noteAdd(box, phrase){
+  var d = dmy();
+  var mid = (box.value || '')
+      .replace(/^TB-\s*/i, '')
+      .replace(new RegExp('\s*' + d.replace(/\//g, '\/') + '\s*$'), '')
+      .trim();
+  if (phrase && mid.toLowerCase().indexOf(phrase.toLowerCase()) < 0){
+    // a specific "texted re 14 Wimbledon" replaces a bare "texted"
+    if (/^texted re /i.test(phrase)) mid = mid.replace(/(^|,\s*)texted(?=,|$)/i, '').replace(/^,\s*/, '').trim();
+    mid = mid ? mid + ', ' + phrase : phrase;
+  }
+  box.value = ('TB- ' + mid + ' ' + d).replace(/\s{2,}/g, ' ');
 }
 
 function dmy(){
@@ -452,22 +469,31 @@ function personCard(c, ev){
   });
   btns.appendChild(call);
 
-  function textBtn(label, body, cls){
+  function textBtn(label, body, cls, record){
     var a = document.createElement('a');
     a.className = 'b txt' + (cls ? ' ' + cls : '');
     a.href = smsHref(c.mobile, body);
     a.textContent = label;
+    // fires before the phone opens Messages, so the note is written either way
+    a.addEventListener('click', function (){ noteAdd(box, record); });
     btns.appendChild(a);
   }
 
   if (ev){
     // opened from a property, so that property is the only text that makes sense
-    textBtn('Text about this one', propMsg(c, ev));
+    textBtn('Text about this one', propMsg(c, ev), '',
+            'texted re ' + titled(((ev.street_number||'') + ' ' + (ev.street||'')).trim()));
   } else {
-    textBtn(done && done.out !== 'noanswer' ? 'Text: thanks for your time' : 'Text: I tried to call',
-            done && done.out !== 'noanswer' ? thanksMsg(c) : missedMsg(c));
-    if (c.sold_addr)   textBtn('Text: ' + titled(c.sold_addr) + ' sold', soldNearMsg(c), 'sold');
-    if (c.listed_addr) textBtn('Text: ' + titled(c.listed_addr) + ' for sale', listedNearMsg(c));
+    var thanks = done && done.out !== 'noanswer';
+    textBtn(thanks ? 'Text: thanks for your time' : 'Text: I tried to call',
+            thanks ? thanksMsg(c) : missedMsg(c), '',
+            'texted');
+    if (c.sold_addr)
+      textBtn('Text: ' + titled(c.sold_addr) + ' sold', soldNearMsg(c), 'sold',
+              'texted re ' + titled(c.sold_addr) + ' sold');
+    if (c.listed_addr)
+      textBtn('Text: ' + titled(c.listed_addr) + ' for sale', listedNearMsg(c), '',
+              'texted re ' + titled(c.listed_addr) + ' for sale');
   }
   el.appendChild(btns);
 
