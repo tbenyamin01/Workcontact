@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-11a -->
+<!-- build 2026-10-11c -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -29,6 +29,10 @@ h1{font-size:22px;margin:0;font-weight:600}
 .tabs button[aria-selected="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
 .card.done{opacity:.52}
+.card.verified{border-left:3px solid var(--good)}
+.chip.ok{color:var(--good);border-color:var(--good)}
+a.b.conf,button.b.conf{flex:1 1 100%;font-size:14px}
+button.b.conf.on{background:var(--brass-soft);border-color:var(--good);color:var(--ink)}
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .nm{font-size:17px;font-weight:600;line-height:1.25}
 .ad{font-size:13.5px;color:var(--muted);margin-top:1px}
@@ -105,15 +109,17 @@ var NL = String.fromCharCode(10);
 /* ------------------------------------------------------------------ state */
 var QUEUE = [], EVENTS = [], TOTAL = 0, tab = 'today', limit = 40, loading = false;
 var PROP = null, PROP_PEOPLE = [], propLoading = false;   // the property he has opened
-var KD = 'wl2done', KQ = 'wl2pending';
-var DONE = {}, PENDING = [];
+var KD = 'wl2done', KQ = 'wl2pending', KC = 'wl2conf';
+var DONE = {}, PENDING = [], CONF = {};
 try { DONE = JSON.parse(localStorage.getItem(KD) || '{}') || {}; } catch (e) {}
 try { PENDING = JSON.parse(localStorage.getItem(KQ) || '[]') || []; } catch (e) {}
+try { CONF = JSON.parse(localStorage.getItem(KC) || '{}') || {}; } catch (e) {}
 
 function save(){
   try {
     localStorage.setItem(KD, JSON.stringify(DONE));
     localStorage.setItem(KQ, JSON.stringify(PENDING));
+    localStorage.setItem(KC, JSON.stringify(CONF));
   } catch (e) {}
 }
 function today(){
@@ -218,22 +224,26 @@ function logOutcome(c, out, note){
 
 /* ------------------------------------------------------------------ network */
 function push(){
-  if (!PENDING.length || !navigator.onLine) { syncTag(); return; }
+  var toConfirm = Object.keys(CONF).filter(function (k){ return !CONF[k].sent; });
+  if ((!PENDING.length && !toConfirm.length) || !navigator.onLine) { syncTag(); return; }
   var batch = PENDING.slice(0, 100);
+  var confBatch = toConfirm.slice(0, 100).map(function (k){ return { id: k, on: CONF[k].on }; });
   syncTag();
   fetch(API + '?t=' + encodeURIComponent(TOKEN), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ rows: batch })
+    body: JSON.stringify({ rows: batch, confirm: confBatch })
   }).then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); })
     .then(function (){
       PENDING = PENDING.slice(batch.length);
+      confBatch.forEach(function (c){ if (CONF[c.id]) CONF[c.id].sent = true; });
       save(); syncTag();
       if (PENDING.length) push();
     }, function (){ syncTag(); });
 }
 function syncTag(){
-  $('#sync').textContent = PENDING.length ? PENDING.length + ' to send' : (navigator.onLine ? '' : 'Offline');
+  var n = PENDING.length + Object.keys(CONF).filter(function (k){ return !CONF[k].sent; }).length;
+  $('#sync').textContent = n ? n + ' to send' : (navigator.onLine ? '' : 'Offline');
 }
 window.addEventListener('online', push);
 setInterval(push, 60000);
@@ -290,7 +300,8 @@ function bandChip(b){
 function personCard(c, ev){
   var el = document.createElement('div');
   var done = DONE[c.id];
-  el.className = 'card' + (done ? ' done' : '');
+  var confd = CONF[c.id] ? CONF[c.id].on : !!c.data_confirmed;
+  el.className = 'card' + (done ? ' done' : '') + (confd ? ' verified' : '');
 
   var top = document.createElement('div');
   top.className = 'top';
@@ -342,6 +353,18 @@ function personCard(c, ev){
     na.textContent = c.consecutive_no_answer + ' no answers in a row';
     chips.appendChild(na);
   }
+  if (confd){
+    var vc = document.createElement('span'); vc.className = 'chip ok'; vc.textContent = 'Confirmed';
+    chips.appendChild(vc);
+  }
+  if (c.is_buyer){
+    var bu = document.createElement('span'); bu.className = 'chip'; bu.textContent = 'Buyer';
+    chips.appendChild(bu);
+  }
+  if (c.recently_sold){
+    var rs = document.createElement('span'); rs.className = 'chip warm'; rs.textContent = 'Sold recently';
+    chips.appendChild(rs);
+  }
   if (done){
     var dn = document.createElement('span'); dn.className = 'chip'; dn.textContent = 'Done: ' + done.label;
     chips.appendChild(dn);
@@ -381,6 +404,20 @@ function personCard(c, ev){
   txt.textContent = ev ? 'Text about this sale' : 'Text';
   btns.append(call, txt);
   el.appendChild(btns);
+
+  // Confirm data: he has actually spoken to them, so the name and address are
+  // real rather than scraped off a cold call list.
+  var isConf = CONF[c.id] ? CONF[c.id].on : !!c.data_confirmed;
+  var cf = document.createElement('button');
+  cf.type = 'button';
+  cf.className = 'b conf' + (isConf ? ' on' : '');
+  cf.textContent = isConf ? 'Data confirmed' : 'Confirm data';
+  cf.addEventListener('click', function (){
+    var now = !(CONF[c.id] ? CONF[c.id].on : !!c.data_confirmed);
+    CONF[c.id] = { on: now, sent: false };
+    save(); push(); render();
+  });
+  btns.appendChild(cf);
 
   var outs = document.createElement('div');
   outs.className = 'outs';
