@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-12n -->
+<!-- build 2026-10-12o -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -35,6 +35,7 @@ h1{font-size:22px;margin:0;font-weight:600}
   font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:7px 0 0;cursor:pointer}
 .card.verified{border-left:3px solid var(--good)}
 .chip.ok{color:var(--good);border-color:var(--good)}
+.chip.warn{color:var(--warn);border-color:var(--warn)}
 a.b.conf,button.b.conf{flex:1 1 100%;font-size:13px;padding:9px}
 a.b.txt{flex:1 1 46%;font-size:13px;padding:9px 6px}
 a.b.txt.sold{border-color:var(--good);color:var(--good)}
@@ -62,6 +63,7 @@ a.b,button.b{flex:1 1 0;min-width:96px;text-align:center;text-decoration:none;fo
   border:1px solid var(--line);background:var(--surface-2);color:var(--ink);border-radius:10px;padding:10px 8px;cursor:pointer}
 a.b.call{background:var(--accent);color:var(--on-accent);border-color:var(--accent);
   flex:1 1 100%;white-space:nowrap;font-size:15px}
+a.b.call.off{background:var(--surface-2);color:var(--warn);border-color:var(--warn);cursor:default}
 .outs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:9px}
 .outs button{font:inherit;font-size:12.5px;font-weight:600;border:1px solid var(--line);background:var(--surface-2);
   color:var(--ink);border-radius:9px;padding:9px 4px;cursor:pointer;line-height:1.2}
@@ -557,6 +559,10 @@ function personCard(c, ev){
     var rs = document.createElement('span'); rs.className = 'chip warm'; rs.textContent = 'Sold recently';
     chips.appendChild(rs);
   }
+  if (c.sms_only){
+    var so = document.createElement('span'); so.className = 'chip warn'; so.textContent = 'Text only';
+    chips.appendChild(so);
+  }
   if (done){
     var dn = document.createElement('span'); dn.className = 'chip'; dn.textContent = 'Done: ' + done.label;
     chips.appendChild(dn);
@@ -587,9 +593,13 @@ function personCard(c, ev){
 
   var btns = document.createElement('div');
   btns.className = 'btns';
+  // Someone who asked not to be phoned does not get a Call button. Texting
+  // them is still fine, that is what they asked for.
   var call = document.createElement('a');
-  call.className = 'b call'; call.href = 'tel:' + (c.mobile || '').replace(/[^\d+]/g, '');
-  call.textContent = 'Call ' + (c.mobile || '');
+  call.className = 'b call' + (c.sms_only ? ' off' : '');
+  call.href = c.sms_only ? '#' : 'tel:' + (c.mobile || '').replace(/[^\d+]/g, '');
+  call.textContent = c.sms_only ? 'Do not call. Text only' : 'Call ' + (c.mobile || '');
+  if (c.sms_only) call.addEventListener('click', function (e){ e.preventDefault(); });
   // Tapping Call lays out the note the way he writes them: TB- then what was
   // said, then today's date. The outcome drops into the gap when he taps one.
   call.addEventListener('click', function (){
