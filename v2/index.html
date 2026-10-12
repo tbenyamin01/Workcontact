@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-12o -->
+<!-- build 2026-10-13a -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -234,13 +234,13 @@ function propMsg(c, e){
     return 'Hi ' + who + ', ' + addr + ' just sold'
          + (e.price ? ' for ' + money(e.price) : '')
          + (d ? '. ' + d : '')
-         + '. One of the closest recent sales to you so worth knowing. '
+         + '. One of the closest properties to you that has recently sold, so worth knowing. '
          + 'Nothing needed from your end. Thomas, Ausrealty.';
   }
   return 'Hi ' + who + ', ' + addr + ' has just come on the market'
        + (d ? '. ' + d : '')
        + (e.price ? '. Guiding ' + money(e.price) + (e.price_high ? ' to ' + money(e.price_high) : '') : '')
-       + '. One of the closest comparables to your place, worth watching what it sells for. '
+       + '. One of the closest properties to you that has just come up for sale, worth watching what it sells for. '
        + 'Thomas, Ausrealty.';
 }
 
@@ -271,7 +271,7 @@ function soldNearMsg(c){
   return 'Hi ' + titled(first(c)) + ', ' + titled(c.sold_addr) + ' just sold'
        + (c.sold_price ? ' for ' + money(c.sold_price) : '')
        + (c.sold_detail ? '. ' + c.sold_detail : '')
-       + '. One of the closest recent sales to you so worth knowing. '
+       + '. One of the closest properties to you that has recently sold, so worth knowing. '
        + 'Nothing needed from your end. Thomas, Ausrealty.';
 }
 
@@ -282,7 +282,7 @@ function listedNearMsg(c){
     : '';
   return 'Hi ' + titled(first(c)) + ', ' + titled(c.listed_addr) + ' has just come on the market'
        + (c.listed_detail ? '. ' + c.listed_detail : '') + px
-       + '. One of the closest comparables to your place, worth watching what it sells for. '
+       + '. One of the closest properties to you that has just come up for sale, worth watching what it sells for. '
        + 'Thomas, Ausrealty.';
 }
 
