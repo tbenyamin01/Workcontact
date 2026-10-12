@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-12j -->
+<!-- build 2026-10-12k -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -34,6 +34,8 @@ h1{font-size:22px;margin:0;font-weight:600}
 a.b.conf,button.b.conf{flex:1 1 100%;font-size:14px}
 a.b.txt{flex:1 1 46%;font-size:14px}
 a.b.txt.sold{border-color:var(--good);color:var(--good)}
+button.b.next{width:100%;margin-top:10px;background:var(--accent);color:var(--on-accent);
+  border-color:var(--accent);font-size:16px;padding:14px}
 button.b.conf.on{background:var(--brass-soft);border-color:var(--good);color:var(--ink)}
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .nm{font-size:17px;font-weight:600;line-height:1.25}
@@ -272,6 +274,10 @@ function logOutcome(c, out, box, el){
     Array.prototype.forEach.call(el.querySelectorAll('.outs button'), function (b){
       b.classList.toggle('on', b.dataset.k === out.k);
     });
+  }
+  if (el){
+    var nb = el.querySelector('.next');
+    if (nb) nb.hidden = false;
   }
   try {
     box.focus();
@@ -602,7 +608,22 @@ function personCard(c, ev){
     b.addEventListener('click', function (){ logOutcome(c, o, box, el); });
     outs.appendChild(b);
   });
-  el.append(outs, box);
+  // Appears the moment an outcome is tapped. Saves whatever he has written
+  // and drops the card to the bottom so the next person is in front of him.
+  var nxt = document.createElement('button');
+  nxt.type = 'button';
+  nxt.className = 'b next';
+  nxt.textContent = 'Done, next';
+  nxt.hidden = !done;
+  nxt.addEventListener('click', function (){
+    if (DONE[c.id]) DONE[c.id].note = composeNote(c, box.value);
+    save();
+    commitDone();
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  el.append(outs, box, nxt);
   return el;
 }
 
