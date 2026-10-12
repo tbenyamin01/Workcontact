@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-12m -->
+<!-- build 2026-10-12n -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -127,11 +127,41 @@ var NL = String.fromCharCode(10);
 /* ------------------------------------------------------------------ state */
 var QUEUE = [], EVENTS = [], TOTAL = 0, tab = 'today', limit = 40, loading = false;
 var PROP = null, PROP_PEOPLE = [], propLoading = false;   // the property he has opened
-var KD = 'wl2done', KQ = 'wl2pending', KC = 'wl2conf';
+var KD = 'wl2done', KQ = 'wl2pending', KC = 'wl2conf', KL = 'wl2list', KP = 'wl2pos';
 var DONE = {}, PENDING = [], CONF = {};
 try { DONE = JSON.parse(localStorage.getItem(KD) || '{}') || {}; } catch (e) {}
 try { PENDING = JSON.parse(localStorage.getItem(KQ) || '[]') || []; } catch (e) {}
 try { CONF = JSON.parse(localStorage.getItem(KC) || '{}') || {}; } catch (e) {}
+
+// The day's list is kept as it was. Coming back from Messages, or from ten
+// minutes doing something else, must not reshuffle the forty people he is
+// halfway through. Only the Refresh button asks for a new order.
+function cacheList(){
+  try {
+    localStorage.setItem(KL, JSON.stringify({ day: today(), total: TOTAL, queue: QUEUE, events: EVENTS }));
+  } catch (e) {}
+}
+function readCache(){
+  try {
+    var c = JSON.parse(localStorage.getItem(KL) || 'null');
+    if (c && c.day === today() && c.queue && c.queue.length) return c;
+  } catch (e) {}
+  return null;
+}
+function rememberPos(){
+  try { localStorage.setItem(KP, JSON.stringify({ day: today(), y: window.scrollY, id: LAST_ID })); } catch (e) {}
+}
+function restorePos(){
+  var p = null;
+  try { p = JSON.parse(localStorage.getItem(KP) || 'null'); } catch (e) {}
+  if (!p || p.day !== today()) return;
+  if (p.id){
+    var card = document.querySelector('[data-cid="' + p.id + '"]');
+    if (card){ card.scrollIntoView({ block: 'center' }); return; }
+  }
+  if (p.y) window.scrollTo(0, p.y);
+}
+var LAST_ID = null;
 
 function save(){
   try {
@@ -276,6 +306,7 @@ var OUTS = [
 // scaffold with the cursor in the gap, and what he types keeps saving. The
 // old behaviour saved on the tap and moved the card, which lost the note.
 function logOutcome(c, out, box, el){
+  LAST_ID = c.id; rememberPos();
   DONE[c.id] = { day: today(), out: out.k, label: out.t, note: '', sent: false };
   noteAdd(box, null);                 // make sure it is TB- ... <date>
   DONE[c.id].note = composeNote(c, box.value);
@@ -341,9 +372,13 @@ function commitDone(){
   if (any) save();
   push();
 }
-window.addEventListener('pagehide', commitDone);
+window.addEventListener('pagehide', function (){ commitDone(); rememberPos(); });
+var posTimer = null;
+window.addEventListener('scroll', function (){
+  clearTimeout(posTimer); posTimer = setTimeout(rememberPos, 400);
+}, { passive: true });
 document.addEventListener('visibilitychange', function (){
-  if (document.visibilityState === 'hidden') commitDone();
+  if (document.visibilityState === 'hidden'){ commitDone(); rememberPos(); }
 });
 
 /* ------------------------------------------------------------------ network */
@@ -374,7 +409,16 @@ function syncTag(){
 window.addEventListener('online', push);
 setInterval(push, 60000);
 
-function load(){
+function load(force){
+  if (!force){
+    var c = readCache();
+    if (c){
+      QUEUE = c.queue; TOTAL = c.total; EVENTS = c.events || [];
+      render();
+      setTimeout(restorePos, 60);
+      return;
+    }
+  }
   if (loading) return;
   loading = true;
   $('#sub').textContent = 'Loading';
@@ -388,7 +432,9 @@ function load(){
     QUEUE = res[0].queue || []; TOTAL = res[0].total || QUEUE.length;
     EVENTS = res[1].events || [];
     loading = false;
+    cacheList();
     render();
+    setTimeout(restorePos, 60);
   }, function (status){
     loading = false;
     // One silent retry. A redeploy or a cold start fails for a few seconds and
@@ -437,6 +483,7 @@ function personCard(c, ev){
   var done = DONE[c.id];
   var confd = CONF[c.id] ? CONF[c.id].on : !!c.data_confirmed;
   el.className = 'card' + (done ? ' done' : '') + (confd ? ' verified' : '');
+  el.dataset.cid = c.id;
 
   var top = document.createElement('div');
   top.className = 'top';
@@ -843,8 +890,8 @@ $('#tabs').addEventListener('click', function (ev){
   });
   render();
 });
-$('#more').addEventListener('click', function (){ limit = limit >= 200 ? 2000 : limit + 80; load(); });
-$('#reload').addEventListener('click', function (){ load(); });
+$('#more').addEventListener('click', function (){ limit = limit >= 200 ? 2000 : limit + 80; load(true); });
+$('#reload').addEventListener('click', function (){ limit = Math.max(limit, QUEUE.length); load(true); });
 
 push();
 load();
