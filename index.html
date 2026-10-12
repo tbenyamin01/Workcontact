@@ -220,7 +220,7 @@ function msgFor(pid, prid){
   return 'Hi ' + p.f + ', ' + pr.addr + ' has just come on the market'
        + (d ? '. ' + d : '')
        + (pr.price ? '. Guiding ' + pr.price : '')
-       + '. One of the closest comparables to your place, worth watching what it sells for. '
+       + '. It is one of the closest homes to yours to come up, so worth watching what it sells for. '
        + 'Thomas, Ausrealty.';
 }
 
@@ -229,10 +229,9 @@ function missedMsg(pid){
   var p = PEOPLE[pid];
   return 'Hey ' + p.f + ',' + NL + ''
        + 'I tried to give you a call.' + NL + NL + ''
-       + 'A few places near you have just sold or come up for sale. That moves what your place '
-       + 'is worth, even when nothing looks different on your street.' + NL + NL + ''
-       + 'Happy to tell you what it did to your number if you want it.' + NL + NL + ''
-       + 'And if this is not you, or you have moved, just say so and I will take you off my list.' + NL + NL + ''
+       + 'There has been a bit of traction around the corner from you. Places selling, '
+       + 'places coming up for sale. It moves what your home is worth right now.' + NL + NL + ''
+       + 'If you want a better understanding of how it has affected your home, just let me know.' + NL + NL + ''
        + 'Kind regards' + NL + ''
        + 'Thomas Benyamin, Ausrealty';
 }
