@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-12h -->
+<!-- build 2026-10-12j -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -258,23 +258,75 @@ var OUTS = [
   { k: 'wrong',    t: 'Wrong number' }
 ];
 
-function logOutcome(c, out, note){
-  var d = dmy();
-  // His own format, from his own sheet: TB- <outcome> <what was said> <date>
-  var said = (note || '')
+// Tap the outcome FIRST, then write. The card holds still, the box gets the
+// scaffold with the cursor in the gap, and what he types keeps saving. The
+// old behaviour saved on the tap and moved the card, which lost the note.
+function logOutcome(c, out, box, el){
+  DONE[c.id] = { day: today(), out: out.k, label: out.t, note: '', sent: false };
+  noteAdd(box, null);                 // make sure it is TB- ... <date>
+  DONE[c.id].note = composeNote(c, box.value);
+  box.value = DONE[c.id].note;        // show him exactly what is saved
+  save();
+  // mark the tapped button without redrawing, so his cursor stays put
+  if (el){
+    Array.prototype.forEach.call(el.querySelectorAll('.outs button'), function (b){
+      b.classList.toggle('on', b.dataset.k === out.k);
+    });
+  }
+  try {
+    box.focus();
+    var at = box.value.length - dmy().length - 1;   // just before the date
+    box.setSelectionRange(at, at);
+  } catch (e) {}
+  schedulePush();
+}
+
+// His format: TB- <outcome>, <what was said> <date>
+function composeNote(c, raw){
+  var d = dmy(), done = DONE[c.id];
+  var said = (raw || '')
       .replace(/^TB-\s*/i, '')
       .replace(new RegExp('\s*' + d.replace(/\//g, '\/') + '\s*$'), '')
       .trim();
-  var line = ('TB- ' + out.t + (said ? ', ' + said : '') + ' ' + d).replace(/\s{2,}/g, ' ');
-  DONE[c.id] = { day: today(), out: out.k, label: out.t, note: line };
-  PENDING.push({
-    contact_id: c.id,
-    outcome: out.t,
-    note: line,
-    at: new Date().toISOString()
-  });
-  save(); push(); render();
+  // strip ANY outcome label off the front, not just the current one, so
+  // changing his mind does not leave the old one sitting in the text
+  for (var i = 0; i < OUTS.length; i++){
+    var L = OUTS[i].t;
+    if (said.toLowerCase().indexOf(L.toLowerCase()) === 0){
+      said = said.slice(L.length).replace(/^,\s*/, '').trim();
+      i = -1;   // start again in case two got stacked up
+    }
+  }
+  if (done && done.label){
+    return ('TB- ' + done.label + (said ? ', ' + said : '') + ' ' + d).replace(/\s{2,}/g, ' ');
+  }
+  return ('TB- ' + said + ' ' + d).replace(/\s{2,}/g, ' ');
 }
+
+// Nothing is sent while he is still typing. Eight seconds after he stops, or
+// the moment he leaves the page, whichever comes first.
+var pushTimer = null;
+function schedulePush(){
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(commitDone, 8000);
+  syncTag();
+}
+function commitDone(){
+  clearTimeout(pushTimer);
+  var any = false;
+  Object.keys(DONE).forEach(function (id){
+    var d = DONE[id];
+    if (d.sent || !d.label) return;
+    PENDING.push({ contact_id: id, outcome: d.label, note: d.note, at: new Date().toISOString() });
+    d.sent = true; any = true;
+  });
+  if (any) save();
+  push();
+}
+window.addEventListener('pagehide', commitDone);
+document.addEventListener('visibilitychange', function (){
+  if (document.visibilityState === 'hidden') commitDone();
+});
 
 /* ------------------------------------------------------------------ network */
 function push(){
@@ -296,7 +348,9 @@ function push(){
     }, function (){ syncTag(); });
 }
 function syncTag(){
-  var n = PENDING.length + Object.keys(CONF).filter(function (k){ return !CONF[k].sent; }).length;
+  var n = PENDING.length
+        + Object.keys(CONF).filter(function (k){ return !CONF[k].sent; }).length
+        + Object.keys(DONE).filter(function (k){ return DONE[k].label && !DONE[k].sent; }).length;
   $('#sync').textContent = n ? n + ' to send' : (navigator.onLine ? '' : 'Offline');
 }
 window.addEventListener('online', push);
@@ -532,13 +586,20 @@ function personCard(c, ev){
   var outs = document.createElement('div');
   outs.className = 'outs';
   if (done) box.value = done.note;
+  box.addEventListener('input', function (){
+    if (!DONE[c.id]) return;
+    DONE[c.id].note = composeNote(c, box.value);
+    DONE[c.id].sent = false;
+    save(); schedulePush();
+  });
 
   OUTS.forEach(function (o){
     var b = document.createElement('button');
     b.type = 'button';
+    b.dataset.k = o.k;
     b.className = (done && done.out === o.k ? 'on' : '') + (o.cls || '');
     b.textContent = o.t;
-    b.addEventListener('click', function (){ logOutcome(c, o, box.value.trim()); });
+    b.addEventListener('click', function (){ logOutcome(c, o, box, el); });
     outs.appendChild(b);
   });
   el.append(outs, box);
