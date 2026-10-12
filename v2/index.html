@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-13c -->
+<!-- build 2026-10-13d -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -277,6 +277,16 @@ function dmy(){
 // The sale nearest this contact, straight off their own card.
 // A property marked under offer carries a price GUIDE, not a sale price.
 // Saying it sold for the guide would be telling people a number that is not real.
+// Shows the Read all button only when the note is actually cut off. Runs once
+// the card is on the page, because a detached element has no height to measure.
+function showMoreIfClipped(noteEl, btn){
+  var check = function (){
+    if (!noteEl.isConnected){ return; }
+    btn.hidden = noteEl.scrollHeight <= noteEl.clientHeight + 2;
+  };
+  if (window.requestAnimationFrame) requestAnimationFrame(function (){ requestAnimationFrame(check); });
+  else setTimeout(check, 0);
+}
 function isSold(e){
   if (!e) return false;
   if (String(e.event_type || '').toLowerCase().indexOf('sold') >= 0) return true;
@@ -606,17 +616,18 @@ function personCard(c, ev){
     n.className = 'note clip';
     n.textContent = noteText;
     el.appendChild(n);
-    if (noteText.length > 150){
-      var mb = document.createElement('button');
-      mb.type = 'button'; mb.className = 'more'; mb.textContent = 'Read all';
-      mb.addEventListener('click', function (){
-        var open = !n.classList.contains('clip');
-        n.classList.toggle('clip', !open ? true : false);
-        n.classList.toggle('clip');
-        mb.textContent = n.classList.contains('clip') ? 'Read all' : 'Less';
-      });
-      el.appendChild(mb);
-    }
+    // The note box clamps to two lines. A character count cannot tell us
+    // whether a note overflows, because a short note can still wrap to three
+    // lines and get cut with no way to open it. So measure the real height.
+    var mb = document.createElement('button');
+    mb.type = 'button'; mb.className = 'more'; mb.textContent = 'Read all';
+    mb.hidden = true;
+    mb.addEventListener('click', function (){
+      var clipped = n.classList.toggle('clip');
+      mb.textContent = clipped ? 'Read all' : 'Less';
+    });
+    el.appendChild(mb);
+    showMoreIfClipped(n, mb);
   }
 
   var box = document.createElement('textarea');
