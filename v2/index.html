@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-13b -->
+<!-- build 2026-10-13c -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -229,8 +229,16 @@ function propMsg(c, e){
   var who = titled(first(c));
   var addr = titled(((e.street_number || '') + ' ' + (e.street || '')).trim());
   var d = detailOf(e);
-  var sold = (e.event_type || '').toLowerCase().indexOf('sold') >= 0;
+  var sold = isSold(e);
   if (sold){
+    // Under offer means a guide, not a sale price. Never quote a guide as what it sold for.
+    if (isGuide(e.status)){
+      return 'Hi ' + who + ', ' + addr + ' is under offer'
+           + (d ? '. ' + d : '')
+           + guideText(e.price, e.price_high)
+           + '. It is one of the closest homes to yours to sell, so I thought you would want to know. '
+           + 'Nothing needed from you. Thomas, Ausrealty.';
+    }
     return 'Hi ' + who + ', ' + addr + ' just sold'
          + (e.price ? ' for ' + money(e.price) : '')
          + (d ? '. ' + d : '')
@@ -267,7 +275,30 @@ function dmy(){
 }
 
 // The sale nearest this contact, straight off their own card.
+// A property marked under offer carries a price GUIDE, not a sale price.
+// Saying it sold for the guide would be telling people a number that is not real.
+function isSold(e){
+  if (!e) return false;
+  if (String(e.event_type || '').toLowerCase().indexOf('sold') >= 0) return true;
+  var st = String(e.status || '').toLowerCase();
+  return st === 'sold' || st === 'under offer' || st === 'under contract';
+}
+function isGuide(st){
+  st = String(st || '').toLowerCase();
+  return st === 'under offer' || st === 'under contract';
+}
+function guideText(lo, hi){
+  if (!lo) return '';
+  return '. It was guiding ' + money(lo) + (hi ? ' to ' + money(hi) : '');
+}
 function soldNearMsg(c){
+  if (c.sold_price_is_guide || isGuide(c.sold_status)){
+    return 'Hi ' + titled(first(c)) + ', ' + titled(c.sold_addr) + ' is under offer'
+         + (c.sold_detail ? '. ' + c.sold_detail : '')
+         + guideText(c.sold_price, c.sold_price_high)
+         + '. It is one of the closest homes to yours to sell, so I thought you would want to know. '
+         + 'Nothing needed from you. Thomas, Ausrealty.';
+  }
   return 'Hi ' + titled(first(c)) + ', ' + titled(c.sold_addr) + ' just sold'
        + (c.sold_price ? ' for ' + money(c.sold_price) : '')
        + (c.sold_detail ? '. ' + c.sold_detail : '')
@@ -730,7 +761,7 @@ function detailOf(e){
 function eventRows(kind){
   var box = document.createElement('div');
   box.className = 'card';
-  var rows = EVENTS.filter(function (e){ return (e.event_type || '').toLowerCase().indexOf(kind) >= 0; });
+  var rows = EVENTS.filter(function (e){ return kind === 'sold' ? isSold(e) : !isSold(e); });
   if (!rows.length){
     var p = document.createElement('p'); p.className = 'msg';
     p.textContent = kind === 'sold' ? 'No sales recorded yet.' : 'Nothing on the market yet.';
@@ -788,7 +819,7 @@ function propertyView(){
   back.addEventListener('click', closeProperty);
   head.appendChild(back);
 
-  var sold = (PROP.event_type || '').toLowerCase().indexOf('sold') >= 0;
+  var sold = isSold(PROP);
   var h = document.createElement('div'); h.className = 'nm';
   h.textContent = (sold ? 'Sold: ' : 'For sale: ')
     + titled(((PROP.street_number || '') + ' ' + (PROP.street || '')).trim());
