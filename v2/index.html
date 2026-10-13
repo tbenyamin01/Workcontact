@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-13e -->
+<!-- build 2026-10-13f -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -57,6 +57,12 @@ button.b.conf.on{background:var(--brass-soft);border-color:var(--good);color:var
 .score{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted);flex:none}
 .note{font-size:12.5px;color:var(--muted);margin-top:7px;white-space:pre-wrap;word-break:break-word;line-height:1.35}
 .note.clip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.search{padding:10px 14px 0;display:flex;gap:8px;align-items:center}
+.search input{flex:1;min-width:0;font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;
+  border:1px solid var(--line);background:var(--card);color:inherit;-webkit-appearance:none}
+.search input:focus{outline:none;border-color:var(--brass)}
+.search button{font:inherit;font-size:13px;font-weight:600;padding:10px 12px;border-radius:10px;
+  border:1px solid var(--line);background:var(--card);color:inherit;cursor:pointer}
 .more{font-size:12.5px;color:var(--brass);background:none;border:0;padding:4px 0;cursor:pointer;font-weight:600}
 .btns{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
 a.b,button.b{flex:1 1 0;min-width:96px;text-align:center;text-decoration:none;font:inherit;font-size:14px;font-weight:600;
@@ -100,6 +106,12 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
     <div class="sub" id="sync"></div>
   </header>
 
+  <div class="search">
+    <input id="q" type="search" inputmode="search" autocomplete="off"
+           placeholder="Search a name, number or street" aria-label="Search every contact">
+    <button type="button" id="qclear" hidden>Clear</button>
+  </div>
+
   <div class="tabs" id="tabs">
     <button type="button" data-tab="today" aria-selected="true">Today</button>
     <button type="button" data-tab="sold" aria-selected="false">Just sold</button>
@@ -128,6 +140,7 @@ var NL = String.fromCharCode(10);
 
 /* ------------------------------------------------------------------ state */
 var QUEUE = [], EVENTS = [], TOTAL = 0, tab = 'today', limit = 40, loading = false;
+var FOUND = null, qTimer = null, qSeq = 0;   // FOUND null means not searching
 var PROP = null, PROP_PEOPLE = [], propLoading = false;   // the property he has opened
 var KD = 'wl2done', KQ = 'wl2pending', KC = 'wl2conf', KL = 'wl2list', KP = 'wl2pos';
 var DONE = {}, PENDING = [], CONF = {};
@@ -453,6 +466,51 @@ function syncTag(){
 }
 window.addEventListener('online', push);
 setInterval(push, 60000);
+
+/* ------------------------------------------------------------------ search
+   He needs this most when someone rings him back, because a person ringing
+   back is never in today's list. So this hits every contact on the server,
+   not the forty already loaded.                                            */
+function runSearch(text){
+  text = (text || '').trim();
+  $('#qclear').hidden = !text;
+
+  if (text.length < 2){
+    if (FOUND !== null){ FOUND = null; render(); setTimeout(restorePos, 60); }
+    return;
+  }
+
+  var mine = ++qSeq;
+  $('#sub').textContent = 'Searching';
+  fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&q=' + encodeURIComponent(text))
+    .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function (d){
+      if (mine !== qSeq) return;          // a later keystroke already won
+      FOUND = d.results || [];
+      render();
+    })
+    .catch(function (){
+      if (mine !== qSeq) return;
+      FOUND = [];
+      render();
+      $('#sub').textContent = 'Could not search. Check your signal.';
+    });
+}
+
+$('#q').addEventListener('input', function (){
+  var v = this.value;
+  clearTimeout(qTimer);
+  qTimer = setTimeout(function (){ runSearch(v); }, 250);
+});
+$('#q').addEventListener('keydown', function (e){
+  if (e.key === 'Enter'){ e.preventDefault(); clearTimeout(qTimer); runSearch(this.value); this.blur(); }
+});
+$('#qclear').addEventListener('click', function (){
+  $('#q').value = '';
+  clearTimeout(qTimer);
+  runSearch('');
+  $('#q').focus();
+});
 
 function load(force){
   if (!force){
@@ -910,6 +968,24 @@ function renderList(){
   list.textContent = '';
   syncTag();
 
+  // A search takes over the list. Tabs and the day's order are left alone, so
+  // clearing the box puts him back exactly where he was.
+  if (FOUND !== null){
+    $('#bar').hidden = false;
+    $('#more').hidden = true;
+    $('#count').textContent = FOUND.length === 1 ? '1 match' : FOUND.length + ' matches';
+    $('#sub').textContent = 'Searching every contact, not just today';
+    if (!FOUND.length){
+      var none = document.createElement('p');
+      none.className = 'msg';
+      none.textContent = 'Nobody matches that.';
+      list.appendChild(none);
+      return;
+    }
+    FOUND.forEach(function (c){ list.appendChild(personCard(c)); });
+    return;
+  }
+
   if (PROP){
     $('#bar').hidden = false;
     $('#more').hidden = true;
@@ -944,6 +1020,8 @@ $('#tabs').addEventListener('click', function (ev){
   var b = ev.target.closest('button[data-tab]');
   if (!b) return;
   tab = b.dataset.tab; PROP = null; PROP_PEOPLE = [];
+  // changing tab means he is done searching
+  FOUND = null; qSeq++; $('#q').value = ''; $('#qclear').hidden = true;
   Array.prototype.forEach.call(this.querySelectorAll('button'), function (x){
     x.setAttribute('aria-selected', x === b ? 'true' : 'false');
   });
