@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-13h -->
+<!-- build 2026-10-13j -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -459,7 +459,8 @@ function push(){
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ rows: batch, confirm: confBatch })
   }).then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); })
-    .then(function (){
+    .then(function (res){
+      if (res && res.today){ SERVER = res.today; }
       PENDING = PENDING.slice(batch.length);
       confBatch.forEach(function (c){ if (CONF[c.id]) CONF[c.id].sent = true; });
       save(); syncTag();
@@ -949,29 +950,66 @@ function propertyView(){
 }
 
 // Today's work, counted off what he has actually tapped.
+// His daily targets, from Work targets.md: 50 connects, 2 appraisals booked,
+// 8 confirmed. The maths behind $300k GCI.
+var TARGET = { spoke: 50, booked: 2, confirmed: 8 };
+
+// The day's totals as the database counts them. This is the honest number: it
+// includes calls made off a property, calls made earlier, and calls made on
+// another device. SERVER is null until the first fetch lands.
+var SERVER = null;
+
+function loadToday(){
+  fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&today=1')
+    .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function (d){ if (d && d.today){ SERVER = d.today; renderTally(); } })
+    .catch(function (){});
+}
+
 function renderTally(){
   var box = $('#tally');
   if (!box) return;
-  if (tab !== 'today' || PROP){ box.hidden = true; return; }
+  // Always on. A call made off a just sold or just listed property counts the
+  // same as one off today's list, so the scoreboard has to follow him there.
+  // It used to hide the moment he opened a property, which made it look like
+  // that work did not count.
+  // Count what this phone has done but not yet sent, then add it to whatever
+  // the database already knows. Anything already sent is in SERVER, so counting
+  // only the unsent ones here is what stops it being counted twice.
   var called = 0, spoke = 0, booked = 0;
   Object.keys(DONE).forEach(function (id){
     var d = DONE[id];
     if (!d.label) return;
+    if (SERVER && d.sent) return;
     called++;
-    if (d.out !== 'noanswer') spoke++;
+    if (d.out !== 'noanswer' && d.out !== 'wrong') spoke++;
     if (d.out === 'booked') booked++;
   });
-  var confirmed = Object.keys(CONF).filter(function (k){ return CONF[k].on; }).length;
+  var confirmed = Object.keys(CONF).filter(function (k){
+    return CONF[k].on && !(SERVER && CONF[k].sent);
+  }).length;
+
+  if (SERVER){
+    called    += SERVER.called    || 0;
+    spoke     += SERVER.spoke     || 0;
+    booked    += SERVER.booked    || 0;
+    confirmed += SERVER.confirmed || 0;
+  }
+
   box.hidden = false;
   box.textContent = '';
-  [['Called', called, false], ['Spoke to', spoke, spoke > 0],
-   ['Appraisals', booked, booked > 0], ['Confirmed', confirmed, confirmed > 0]]
+  [['Called', called, null],
+   ['Spoke to', spoke, TARGET.spoke],
+   ['Appraisals', booked, TARGET.booked],
+   ['Confirmed', confirmed, TARGET.confirmed]]
     .forEach(function (x){
+      var name = x[0], n = x[1], goal = x[2];
       var d = document.createElement('div');
-      if (x[2]) d.className = 'hit';
-      var b = document.createElement('b'); b.textContent = x[1];
-      var s = document.createElement('span'); s.textContent = x[0];
-      d.append(b, s); box.appendChild(d);
+      if (goal && n >= goal) d.className = 'hit';
+      var b = document.createElement('b');
+      b.textContent = goal ? n + ' / ' + goal : String(n);
+      var sp = document.createElement('span'); sp.textContent = name;
+      d.append(b, sp); box.appendChild(d);
     });
 }
 
@@ -1047,10 +1085,13 @@ $('#tabs').addEventListener('click', function (ev){
   render();
 });
 $('#more').addEventListener('click', function (){ limit = limit >= 200 ? 2000 : limit + 80; load(true); });
-$('#reload').addEventListener('click', function (){ limit = Math.max(limit, QUEUE.length); load(true); });
+$('#reload').addEventListener('click', function (){ limit = Math.max(limit, QUEUE.length); load(true); loadToday(); });
 
 push();
 load();
+loadToday();
+// keep the scoreboard honest while he works
+setInterval(loadToday, 180000);
 </script>
 </body>
 </html>
