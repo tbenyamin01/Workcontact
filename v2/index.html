@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-13k -->
+<!-- build 2026-10-13l -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -143,10 +143,11 @@ var NL = String.fromCharCode(10);
 var QUEUE = [], EVENTS = [], TOTAL = 0, tab = 'today', limit = 40, loading = false;
 var FOUND = null, qTimer = null, qSeq = 0;   // FOUND null means not searching
 var PROP = null, PROP_PEOPLE = [], propLoading = false;   // the property he has opened
-var KD = 'wl2done', KQ = 'wl2pending', KC = 'wl2conf', KL = 'wl2list', KP = 'wl2pos', KT = 'wl2sms';
-var DONE = {}, PENDING = [], CONF = {}, SMS = {};
+var KD = 'wl2done', KQ = 'wl2pending', KC = 'wl2conf', KL = 'wl2list', KP = 'wl2pos', KT = 'wl2sms', KX = 'wl2dial';
+var DONE = {}, PENDING = [], CONF = {}, SMS = {}, DIAL = {};
 try { DONE = JSON.parse(localStorage.getItem(KD) || '{}') || {}; } catch (e) {}
 try { SMS  = JSON.parse(localStorage.getItem(KT) || '{}') || {}; } catch (e) {}
+try { DIAL = JSON.parse(localStorage.getItem(KX) || '{}') || {}; } catch (e) {}
 try { PENDING = JSON.parse(localStorage.getItem(KQ) || '[]') || []; } catch (e) {}
 try { CONF = JSON.parse(localStorage.getItem(KC) || '{}') || {}; } catch (e) {}
 
@@ -200,6 +201,9 @@ function $(s){ return document.querySelector(s); }
   var sc = false;
   Object.keys(SMS).forEach(function (k){ if (SMS[k].day !== t) { delete SMS[k]; sc = true; } });
   if (sc) { try { localStorage.setItem(KT, JSON.stringify(SMS)); } catch (e) {} }
+  var dc = false;
+  Object.keys(DIAL).forEach(function (k){ if (DIAL[k] !== t) { delete DIAL[k]; dc = true; } });
+  if (dc) { try { localStorage.setItem(KX, JSON.stringify(DIAL)); } catch (e) {} }
   if (changed) save();
 })();
 
@@ -397,6 +401,8 @@ function logOutcome(c, out, box, el){
     var at = box.value.length - dmy().length - 1;   // just before the date
     box.setSelectionRange(at, at);
   } catch (e) {}
+  // the whole point of the scoreboard is seeing it move as he works
+  renderTally();
   schedulePush();
 }
 
@@ -433,6 +439,17 @@ function schedulePush(){
 // Tapping a text button is the only moment we know a text was composed. The
 // phone never tells us whether it was actually sent, so this counts people he
 // opened a message to, once each per day.
+// Tapping Call counts him as having dialled, straight away. It is kept on this
+// phone only and never sent as its own row: the outcome he logs afterwards is
+// the real record, and a row with no outcome would reschedule the person.
+function markDialled(id){
+  var t = today();
+  if (DIAL[id] === t) return;
+  DIAL[id] = t;
+  try { localStorage.setItem(KX, JSON.stringify(DIAL)); } catch (e) {}
+  renderTally();
+}
+
 function markTexted(id){
   var t = today();
   if (SMS[id] && SMS[id].day === t) return;
@@ -747,6 +764,7 @@ function personCard(c, ev){
   // Tapping Call lays out the note the way he writes them: TB- then what was
   // said, then today's date. The outcome drops into the gap when he taps one.
   call.addEventListener('click', function (){
+    markDialled(c.id);
     if (!box.value.trim()) box.value = 'TB-  ' + dmy();
     setTimeout(function (){
       try { box.focus(); box.setSelectionRange(4, 4); } catch (e) {}
@@ -1002,15 +1020,24 @@ function renderTally(){
   // Count what this phone has done but not yet sent, then add it to whatever
   // the database already knows. Anything already sent is in SERVER, so counting
   // only the unsent ones here is what stops it being counted twice.
-  var called = 0, spoke = 0, booked = 0;
+  var spoke = 0, booked = 0;
+  var tnow = today();
+  // One person dialled and then logged is one call, not two, so count heads.
+  var heads = {};
+  Object.keys(DIAL).forEach(function (id){ if (DIAL[id] === tnow) heads[id] = 1; });
   Object.keys(DONE).forEach(function (id){
     var d = DONE[id];
     if (!d.label) return;
+    heads[id] = 1;
     if (SERVER && d.sent) return;
-    called++;
     if (d.out !== 'noanswer' && d.out !== 'wrong') spoke++;
     if (d.out === 'booked') booked++;
   });
+  // anything already on the server is counted there, not here
+  if (SERVER) Object.keys(heads).forEach(function (id){
+    if (DONE[id] && DONE[id].sent) delete heads[id];
+  });
+  var called = Object.keys(heads).length;
   var confirmed = Object.keys(CONF).filter(function (k){
     return CONF[k].on && !(SERVER && CONF[k].sent);
   }).length;
