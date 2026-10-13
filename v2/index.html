@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-13l -->
+<!-- build 2026-10-13m -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -57,6 +57,8 @@ button.b.conf.on{background:var(--brass-soft);border-color:var(--good);color:var
 .score{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted);flex:none}
 .note{font-size:12.5px;color:var(--muted);margin-top:7px;white-space:pre-wrap;word-break:break-word;line-height:1.35}
 .note.clip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.counted{font-size:12px;color:var(--brass);padding:2px 0 4px;font-weight:600}
+.outs button[data-spoke]{border-left:3px solid var(--brass)}
 .chip.warn{background:#5a2a12;border-color:#a8621f;color:#ffd9ad}
 .search{padding:10px 14px 0;display:flex;gap:8px;align-items:center}
 .search input{flex:1;min-width:0;font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;
@@ -365,6 +367,10 @@ function smsHref(phone, body){
 }
 
 /* ------------------------------------------------------------------ outcomes */
+// Every one of these is a conversation, so every one counts toward connects.
+// Not interested is still someone who picked up and talked to him.
+var SPOKE = { spoke: 1, callback: 1, notint: 1, booked: 1 };
+
 var OUTS = [
   { k: 'noanswer', t: 'No answer' },
   // A good conversation that is not a callback, a refusal or a booking.
@@ -373,7 +379,9 @@ var OUTS = [
   { k: 'callback', t: 'Call back' },
   { k: 'notint',   t: 'Not interested' },
   { k: 'booked',   t: 'Appraisal booked', cls: ' good' },
-  { k: 'wrong',    t: 'Wrong number' }
+  // Either the number or the address is not theirs. One button, because to
+  // him it is the same thing: this record is not the person he reached.
+  { k: 'wrong',    t: 'Wrong contact' }
 ];
 
 // Tap the outcome FIRST, then write. The card holds still, the box gets the
@@ -395,6 +403,14 @@ function logOutcome(c, out, box, el){
   if (el){
     var nb = el.querySelector('.next');
     if (nb) nb.hidden = false;
+    var say = el.querySelector('.counted');
+    if (say){
+      say.textContent = SPOKE[out.k]
+        ? 'Counted as a connect'
+        : (out.k === 'wrong' ? 'Not a connect. Taken off the list, data marked wrong.'
+                             : 'Not a connect');
+      say.hidden = false;
+    }
   }
   try {
     box.focus();
@@ -841,11 +857,17 @@ function personCard(c, ev){
     b.dataset.k = o.k;
     b.className = (done && done.out === o.k ? 'on' : '') + (o.cls || '');
     b.textContent = o.t;
+    if (SPOKE[o.k]) b.dataset.spoke = '1';
     b.addEventListener('click', function (){ logOutcome(c, o, box, el); });
     outs.appendChild(b);
   });
   // Appears the moment an outcome is tapped. Saves whatever he has written
   // and drops the card to the bottom so the next person is in front of him.
+  var counted = document.createElement('div');
+  counted.className = 'counted';
+  counted.hidden = true;
+  el.appendChild(counted);
+
   var nxt = document.createElement('button');
   nxt.type = 'button';
   nxt.className = 'b next';
@@ -1030,7 +1052,7 @@ function renderTally(){
     if (!d.label) return;
     heads[id] = 1;
     if (SERVER && d.sent) return;
-    if (d.out !== 'noanswer' && d.out !== 'wrong') spoke++;
+    if (SPOKE[d.out]) spoke++;
     if (d.out === 'booked') booked++;
   });
   // anything already on the server is counted there, not here
