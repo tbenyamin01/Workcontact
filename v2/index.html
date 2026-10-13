@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-13m -->
+<!-- build 2026-10-13n -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -57,6 +57,9 @@ button.b.conf.on{background:var(--brass-soft);border-color:var(--good);color:var
 .score{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted);flex:none}
 .note{font-size:12.5px;color:var(--muted);margin-top:7px;white-space:pre-wrap;word-break:break-word;line-height:1.35}
 .note.clip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#update{display:block;width:calc(100% - 28px);margin:10px 14px 0;padding:12px;border:0;
+  border-radius:10px;background:var(--brass);color:#1a1205;font:inherit;font-size:14px;
+  font-weight:700;cursor:pointer}
 .counted{font-size:12px;color:var(--brass);padding:2px 0 4px;font-weight:600}
 .outs button[data-spoke]{border-left:3px solid var(--brass)}
 .chip.warn{background:#5a2a12;border-color:#a8621f;color:#ffd9ad}
@@ -109,6 +112,8 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
     <div class="sub" id="sync"></div>
   </header>
 
+  <button type="button" id="update" hidden>A newer version is ready. Tap to load it.</button>
+
   <div class="search">
     <input id="q" type="search" inputmode="search" autocomplete="off"
            placeholder="Search a name, number or street" aria-label="Search every contact">
@@ -133,6 +138,11 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 
 <script>
 /* ------------------------------------------------------------------ config */
+// Bumped with every publish. The page compares this against whatever the server
+// is actually serving, because a phone will happily run a cached copy for days
+// and he has no way of knowing. This is what stops that.
+var BUILD = '2026-10-13n';
+
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
 var NL = String.fromCharCode(10);
@@ -1168,9 +1178,50 @@ $('#tabs').addEventListener('click', function (ev){
 $('#more').addEventListener('click', function (){ limit = limit >= 200 ? 2000 : limit + 80; load(true); });
 $('#reload').addEventListener('click', function (){ limit = Math.max(limit, QUEUE.length); load(true); loadToday(); });
 
+// Does he have work this phone has not sent yet
+function hasUnsent(){
+  if (PENDING.length) return true;
+  var t = today(), un = false;
+  Object.keys(DONE).forEach(function (k){ if (DONE[k].label && !DONE[k].sent) un = true; });
+  Object.keys(SMS).forEach(function (k){ if (SMS[k].day === t && !SMS[k].sent) un = true; });
+  return un;
+}
+
+function freshUrl(v){
+  var u = location.pathname + '?t=' + encodeURIComponent(TOKEN) + '&v=' + encodeURIComponent(v);
+  return u;
+}
+
+function checkBuild(){
+  fetch(location.pathname + '?cb=' + Date.now(), { cache: 'no-store' })
+    .then(function (r){ return r.ok ? r.text() : Promise.reject(r.status); })
+    .then(function (html){
+      var m = html.match(/<!-- build ([^>]*?) -->/);
+      if (!m) return;
+      var live = m[1].trim();
+      if (live === BUILD) { $('#update').hidden = true; return; }
+
+      // never throw away work. Send it first, and pick this up next time round.
+      if (hasUnsent()){ commitDone(); $('#update').hidden = false; return; }
+
+      // if he is mid note, let him finish and offer the button instead
+      var busy = document.activeElement && document.activeElement.tagName === 'TEXTAREA';
+      if (busy){ $('#update').hidden = false; return; }
+
+      location.replace(freshUrl(live));
+    })
+    .catch(function (){});
+}
+$('#update').addEventListener('click', function (){
+  commitDone();
+  setTimeout(function (){ location.replace(freshUrl(Date.now())); }, 300);
+});
+
 push();
 load();
 loadToday();
+checkBuild();
+setInterval(checkBuild, 120000);
 // keep the scoreboard honest while he works
 setInterval(loadToday, 180000);
 </script>
