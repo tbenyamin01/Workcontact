@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-13f -->
+<!-- build 2026-10-13g -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -611,11 +611,15 @@ function personCard(c, ev){
   function propChip(kind, addr, price, priceHigh, detail, metres, status){
     if (!addr) return;
     var sold = kind === 'sold';
-    var txt = (sold ? 'Sold ' : ((status && status !== 'For sale') ? status + ' ' : 'For sale '))
+    // Under offer is counted as sold so it leaves the new listing rotation, but
+    // its figure is still only a guide. The chip must not read like a sale price.
+    var guide = sold && isGuide(status);
+    var txt = (guide ? 'Under offer ' : sold ? 'Sold ' :
+               ((status && status !== 'For sale') ? status + ' ' : 'For sale '))
             + titled(addr);
     if (price){
-      txt += sold ? ' ' + money(price)
-                  : ', guide ' + money(price) + (priceHigh ? ' to ' + money(priceHigh) : '');
+      txt += (sold && !guide) ? ' ' + money(price)
+                              : ', guide ' + money(price) + (priceHigh ? ' to ' + money(priceHigh) : '');
     }
     if (detail) txt += '. ' + detail;
     if (metres != null) txt += '. ' + (metres < 30 ? 'same street' : metres + ' m away');
@@ -633,7 +637,8 @@ function personCard(c, ev){
   props.sort(function (a, b){ return (a.m == null ? 9999 : a.m) - (b.m == null ? 9999 : b.m); });
   props.forEach(function (x){
     if (x.k === 'sold')
-      propChip('sold', c.sold_addr, c.sold_price, null, c.sold_detail, c.sold_m, null);
+      propChip('sold', c.sold_addr, c.sold_price, c.sold_price_high,
+               c.sold_detail, c.sold_m, c.sold_status);
     else
       propChip('listed', c.listed_addr, c.listed_price, c.listed_price_high,
                c.listed_detail, c.listed_m, c.listed_status);
