@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-13d -->
+<!-- build 2026-10-13e -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -277,15 +277,17 @@ function dmy(){
 // The sale nearest this contact, straight off their own card.
 // A property marked under offer carries a price GUIDE, not a sale price.
 // Saying it sold for the guide would be telling people a number that is not real.
-// Shows the Read all button only when the note is actually cut off. Runs once
-// the card is on the page, because a detached element has no height to measure.
-function showMoreIfClipped(noteEl, btn){
-  var check = function (){
-    if (!noteEl.isConnected){ return; }
-    btn.hidden = noteEl.scrollHeight <= noteEl.clientHeight + 2;
-  };
-  if (window.requestAnimationFrame) requestAnimationFrame(function (){ requestAnimationFrame(check); });
-  else setTimeout(check, 0);
+// Shows the Read all button only when the note is actually cut off. A note has
+// no height until its card is on the page, so this runs as one pass after the
+// whole list is rendered, never per card while it is still detached.
+function syncNoteButtons(){
+  var notes = document.querySelectorAll('.note.clip');
+  for (var i = 0; i < notes.length; i++){
+    var n = notes[i];
+    var btn = n.nextElementSibling;
+    if (!btn || btn.className !== 'more') continue;
+    btn.hidden = n.scrollHeight <= n.clientHeight + 2;
+  }
 }
 function isSold(e){
   if (!e) return false;
@@ -627,7 +629,6 @@ function personCard(c, ev){
       mb.textContent = clipped ? 'Read all' : 'Less';
     });
     el.appendChild(mb);
-    showMoreIfClipped(n, mb);
   }
 
   var box = document.createElement('textarea');
@@ -897,7 +898,13 @@ function renderTally(){
     });
 }
 
+// render has several early exits, so the note pass wraps it rather than
+// sitting at the bottom of it where some paths would never reach it.
 function render(){
+  renderList();
+  syncNoteButtons();
+}
+function renderList(){
   renderTally();
   var list = $('#list');
   list.textContent = '';
