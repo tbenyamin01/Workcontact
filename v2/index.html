@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-13j -->
+<!-- build 2026-10-13k -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -143,9 +143,10 @@ var NL = String.fromCharCode(10);
 var QUEUE = [], EVENTS = [], TOTAL = 0, tab = 'today', limit = 40, loading = false;
 var FOUND = null, qTimer = null, qSeq = 0;   // FOUND null means not searching
 var PROP = null, PROP_PEOPLE = [], propLoading = false;   // the property he has opened
-var KD = 'wl2done', KQ = 'wl2pending', KC = 'wl2conf', KL = 'wl2list', KP = 'wl2pos';
-var DONE = {}, PENDING = [], CONF = {};
+var KD = 'wl2done', KQ = 'wl2pending', KC = 'wl2conf', KL = 'wl2list', KP = 'wl2pos', KT = 'wl2sms';
+var DONE = {}, PENDING = [], CONF = {}, SMS = {};
 try { DONE = JSON.parse(localStorage.getItem(KD) || '{}') || {}; } catch (e) {}
+try { SMS  = JSON.parse(localStorage.getItem(KT) || '{}') || {}; } catch (e) {}
 try { PENDING = JSON.parse(localStorage.getItem(KQ) || '[]') || []; } catch (e) {}
 try { CONF = JSON.parse(localStorage.getItem(KC) || '{}') || {}; } catch (e) {}
 
@@ -196,6 +197,9 @@ function $(s){ return document.querySelector(s); }
 (function prune(){
   var t = today(), changed = false;
   Object.keys(DONE).forEach(function (k){ if (DONE[k].day !== t) { delete DONE[k]; changed = true; } });
+  var sc = false;
+  Object.keys(SMS).forEach(function (k){ if (SMS[k].day !== t) { delete SMS[k]; sc = true; } });
+  if (sc) { try { localStorage.setItem(KT, JSON.stringify(SMS)); } catch (e) {} }
   if (changed) save();
 })();
 
@@ -426,6 +430,18 @@ function schedulePush(){
   pushTimer = setTimeout(commitDone, 8000);
   syncTag();
 }
+// Tapping a text button is the only moment we know a text was composed. The
+// phone never tells us whether it was actually sent, so this counts people he
+// opened a message to, once each per day.
+function markTexted(id){
+  var t = today();
+  if (SMS[id] && SMS[id].day === t) return;
+  SMS[id] = { day: t, sent: false };
+  try { localStorage.setItem(KT, JSON.stringify(SMS)); } catch (e) {}
+  renderTally();
+  schedulePush();
+}
+
 function commitDone(){
   clearTimeout(pushTimer);
   var any = false;
@@ -435,7 +451,14 @@ function commitDone(){
     PENDING.push({ contact_id: id, outcome: d.label, note: d.note, at: new Date().toISOString() });
     d.sent = true; any = true;
   });
-  if (any) save();
+  var t = today();
+  Object.keys(SMS).forEach(function (id){
+    var m = SMS[id];
+    if (m.sent || m.day !== t) return;
+    PENDING.push({ contact_id: id, type: 'sms', outcome: 'Texted', note: '', at: new Date().toISOString() });
+    m.sent = true; any = true;
+  });
+  if (any){ save(); try { localStorage.setItem(KT, JSON.stringify(SMS)); } catch (e) {} }
   push();
 }
 window.addEventListener('pagehide', function (){ commitDone(); rememberPos(); });
@@ -737,7 +760,10 @@ function personCard(c, ev){
     a.href = smsHref(c.mobile, body);
     a.textContent = label;
     // fires before the phone opens Messages, so the note is written either way
-    a.addEventListener('click', function (){ noteAdd(box, record); });
+    a.addEventListener('click', function (){
+      noteAdd(box, record);
+      markTexted(c.id);
+    });
     btns.appendChild(a);
   }
 
@@ -988,17 +1014,23 @@ function renderTally(){
   var confirmed = Object.keys(CONF).filter(function (k){
     return CONF[k].on && !(SERVER && CONF[k].sent);
   }).length;
+  var tday = today();
+  var texted = Object.keys(SMS).filter(function (k){
+    return SMS[k].day === tday && !(SERVER && SMS[k].sent);
+  }).length;
 
   if (SERVER){
     called    += SERVER.called    || 0;
     spoke     += SERVER.spoke     || 0;
     booked    += SERVER.booked    || 0;
+    texted    += SERVER.texted    || 0;
     confirmed += SERVER.confirmed || 0;
   }
 
   box.hidden = false;
   box.textContent = '';
   [['Called', called, null],
+   ['Texts', texted, null],
    ['Spoke to', spoke, TARGET.spoke],
    ['Appraisals', booked, TARGET.booked],
    ['Confirmed', confirmed, TARGET.confirmed]]
