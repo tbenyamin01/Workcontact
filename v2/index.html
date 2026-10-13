@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-13g -->
+<!-- build 2026-10-13h -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -57,6 +57,7 @@ button.b.conf.on{background:var(--brass-soft);border-color:var(--good);color:var
 .score{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted);flex:none}
 .note{font-size:12.5px;color:var(--muted);margin-top:7px;white-space:pre-wrap;word-break:break-word;line-height:1.35}
 .note.clip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.chip.warn{background:#5a2a12;border-color:#a8621f;color:#ffd9ad}
 .search{padding:10px 14px 0;display:flex;gap:8px;align-items:center}
 .search input{flex:1;min-width:0;font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;
   border:1px solid var(--line);background:var(--card);color:inherit;-webkit-appearance:none}
@@ -200,6 +201,14 @@ function $(s){ return document.querySelector(s); }
 
 /* ------------------------------------------------------------------ people */
 function first(c){ return (c.first_name || '').split(' ')[0] || 'there'; }
+// If the voicemail named a different person we do not actually know who owns
+// this number, so no message goes out with a name on it. Thomas got caught by
+// this on 13 Oct: the note said Kiran Murphy and the text still said Gerard.
+function nameOk(c){ return !c.name_doubt; }
+function salute(c, word){
+  var n = nameOk(c) ? titled(first(c)) : '';
+  return n ? word + ' ' + n + ',' : word + ',';
+}
 function titled(s){
   return (s || '').toLowerCase().replace(/\b[a-z]/g, function (m){ return m.toUpperCase(); });
 }
@@ -222,7 +231,7 @@ function shortDate(d){
 /* ------------------------------------------------------------------ messages
    Thomas's own wording. Do not reword these. No dashes anywhere.            */
 function missedMsg(c){
-  return 'Hey ' + titled(first(c)) + ',' + NL
+  return salute(c, 'Hey') + NL
        + 'I tried to give you a call.' + NL + NL
        + 'There has been a bit of traction around the corner from you. Places selling, '
        + 'places coming up for sale. It moves what your home is worth right now.' + NL + NL
@@ -231,7 +240,7 @@ function missedMsg(c){
        + 'Thomas Benyamin, Ausrealty';
 }
 function thanksMsg(c){
-  return 'Hi ' + titled(first(c)) + ',' + NL
+  return salute(c, 'Hi') + NL
        + 'Appreciate your time on the phone.' + NL + NL
        + 'Let me know if I can be of any further help to you, or to family and friends.' + NL + NL
        + 'Warm regards' + NL
@@ -239,26 +248,25 @@ function thanksMsg(c){
 }
 // When he rings off the back of a specific sale, the text names that sale.
 function propMsg(c, e){
-  var who = titled(first(c));
   var addr = titled(((e.street_number || '') + ' ' + (e.street || '')).trim());
   var d = detailOf(e);
   var sold = isSold(e);
   if (sold){
     // Under offer means a guide, not a sale price. Never quote a guide as what it sold for.
     if (isGuide(e.status)){
-      return 'Hi ' + who + ', ' + addr + ' is under offer'
+      return salute(c, 'Hi') + ' ' + addr + ' is under offer'
            + (d ? '. ' + d : '')
            + guideText(e.price, e.price_high)
            + '. It is one of the closest homes to yours to sell, so I thought you would want to know. '
            + 'Nothing needed from you. Thomas, Ausrealty.';
     }
-    return 'Hi ' + who + ', ' + addr + ' just sold'
+    return salute(c, 'Hi') + ' ' + addr + ' just sold'
          + (e.price ? ' for ' + money(e.price) : '')
          + (d ? '. ' + d : '')
          + '. It is one of the closest homes to yours to sell recently, so I thought you would want to know. '
          + 'Nothing needed from you. Thomas, Ausrealty.';
   }
-  return 'Hi ' + who + ', ' + addr + ' has just come on the market'
+  return salute(c, 'Hi') + ' ' + addr + ' has just come on the market'
        + (d ? '. ' + d : '')
        + (e.price ? '. Guiding ' + money(e.price) + (e.price_high ? ' to ' + money(e.price_high) : '') : '')
        + '. It is one of the closest homes to yours to come up, so worth watching what it sells for. '
@@ -318,13 +326,13 @@ function guideText(lo, hi){
 }
 function soldNearMsg(c){
   if (c.sold_price_is_guide || isGuide(c.sold_status)){
-    return 'Hi ' + titled(first(c)) + ', ' + titled(c.sold_addr) + ' is under offer'
+    return salute(c, 'Hi') + ' ' + titled(c.sold_addr) + ' is under offer'
          + (c.sold_detail ? '. ' + c.sold_detail : '')
          + guideText(c.sold_price, c.sold_price_high)
          + '. It is one of the closest homes to yours to sell, so I thought you would want to know. '
          + 'Nothing needed from you. Thomas, Ausrealty.';
   }
-  return 'Hi ' + titled(first(c)) + ', ' + titled(c.sold_addr) + ' just sold'
+  return salute(c, 'Hi') + ' ' + titled(c.sold_addr) + ' just sold'
        + (c.sold_price ? ' for ' + money(c.sold_price) : '')
        + (c.sold_detail ? '. ' + c.sold_detail : '')
        + '. It is one of the closest homes to yours to sell recently, so I thought you would want to know. '
@@ -336,7 +344,7 @@ function listedNearMsg(c){
   var px = c.listed_price
     ? '. Guiding ' + money(c.listed_price) + (c.listed_price_high ? ' to ' + money(c.listed_price_high) : '')
     : '';
-  return 'Hi ' + titled(first(c)) + ', ' + titled(c.listed_addr) + ' has just come on the market'
+  return salute(c, 'Hi') + ' ' + titled(c.listed_addr) + ' has just come on the market'
        + (c.listed_detail ? '. ' + c.listed_detail : '') + px
        + '. It is one of the closest homes to yours to come up, so worth watching what it sells for. '
        + 'Thomas, Ausrealty.';
@@ -632,6 +640,12 @@ function personCard(c, ev){
   // nearest first, because a sale on their own street beats a newer one
   // three streets over
   var props = [];
+  if (c.name_doubt){
+    var nd = document.createElement('span');
+    nd.className = 'chip warn';
+    nd.textContent = 'Name not confirmed. ' + c.name_doubt;
+    chips.appendChild(nd);
+  }
   if (c.sold_addr)   props.push({ k:'sold',   m: c.sold_m });
   if (c.listed_addr) props.push({ k:'listed', m: c.listed_m });
   props.sort(function (a, b){ return (a.m == null ? 9999 : a.m) - (b.m == null ? 9999 : b.m); });
