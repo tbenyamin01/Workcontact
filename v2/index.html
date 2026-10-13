@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-13p -->
+<!-- build 2026-10-13q -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -141,7 +141,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-13p';
+var BUILD = '2026-10-13q';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -1193,9 +1193,10 @@ function hasUnsent(){
   return un;
 }
 
+// The token lives in this file, not in the address, so the link stays short
+// enough for him to type. Only the version tag is needed, to beat the cache.
 function freshUrl(v){
-  var u = location.pathname + '?t=' + encodeURIComponent(TOKEN) + '&v=' + encodeURIComponent(v);
-  return u;
+  return location.pathname + '?v=' + encodeURIComponent(v);
 }
 
 function checkBuild(){
