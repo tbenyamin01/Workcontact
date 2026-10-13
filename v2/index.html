@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-13n -->
+<!-- build 2026-10-13p -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -141,7 +141,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-13n';
+var BUILD = '2026-10-13p';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -1035,11 +1035,17 @@ var TARGET = { spoke: 50, booked: 2, confirmed: 8 };
 // another device. SERVER is null until the first fetch lands.
 var SERVER = null;
 
-function loadToday(){
+function loadToday(again){
   fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&today=1')
     .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); })
     .then(function (d){ if (d && d.today){ SERVER = d.today; renderTally(); } })
-    .catch(function (){});
+    .catch(function (){
+      // A cold start answers 503 for a second or two. Swallowing that silently
+      // left the whole scoreboard sitting on zero for three minutes, which
+      // looks exactly like the app not counting his work.
+      if (again) return;
+      setTimeout(function (){ loadToday(true); }, 2500);
+    });
 }
 
 function renderTally(){
@@ -1223,7 +1229,7 @@ loadToday();
 checkBuild();
 setInterval(checkBuild, 120000);
 // keep the scoreboard honest while he works
-setInterval(loadToday, 180000);
+setInterval(function (){ loadToday(); }, 180000);
 </script>
 </body>
 </html>
