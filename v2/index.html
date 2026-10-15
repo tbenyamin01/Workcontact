@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-16d -->
+<!-- build 2026-10-16e -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -156,7 +156,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-16d';
+var BUILD = '2026-10-16e';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -1400,7 +1400,14 @@ function renderList(){
     pending.concat(handled).forEach(function (c){ list.appendChild(personCard(c)); });
   } else {
     $('#bar').hidden = true;
-    $('#sub').textContent = EVENTS.length + ' properties tracked';
+    var covered = {};
+    EVENTS.forEach(function (e){ if (e.suburb) covered[e.suburb] = 1; });
+    var have = Object.keys(covered).sort();
+    var missing = FOCUS.filter(function (n){ return !covered[n]; });
+    $('#sub').textContent = EVENTS.length + ' properties tracked'
+      + (have.length ? ', ' + have.join(' and ') : '')
+      + (missing.length ? '. No data yet for ' + missing.join(' or ')
+                        + ', needs a Pricefinder export' : '');
     list.appendChild(eventRows(tab));
   }
 }
