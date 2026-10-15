@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-13q -->
+<!-- build 2026-10-16a -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -122,6 +122,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 
   <div class="tabs" id="tabs">
     <button type="button" data-tab="today" aria-selected="true">Today</button>
+    <button type="button" data-tab="cold" aria-selected="false">Cold data</button>
     <button type="button" data-tab="sold" aria-selected="false">Just sold</button>
     <button type="button" data-tab="listed" aria-selected="false">Just listed</button>
   </div>
@@ -141,7 +142,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-13q';
+var BUILD = '2026-10-16a';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -153,9 +154,15 @@ var NL = String.fromCharCode(10);
 
 /* ------------------------------------------------------------------ state */
 var QUEUE = [], EVENTS = [], TOTAL = 0, tab = 'today', limit = 40, loading = false;
+// Two lists, two jobs. Today is people whose details he has verified, so the
+// call is a real conversation. Cold is raw Pricefinder data where the only job
+// is finding out whether the name and number are even right. The cold list is
+// fetched the first time he opens that tab, never on startup.
+var COLD = [], COLD_TOTAL = 0, coldLimit = 40, coldLoading = false;
 var FOUND = null, qTimer = null, qSeq = 0;   // FOUND null means not searching
 var PROP = null, PROP_PEOPLE = [], propLoading = false;   // the property he has opened
 var KD = 'wl2done', KQ = 'wl2pending', KC = 'wl2conf', KL = 'wl2list', KP = 'wl2pos', KT = 'wl2sms', KX = 'wl2dial';
+var KLC = 'wl2coldlist';
 var DONE = {}, PENDING = [], CONF = {}, SMS = {}, DIAL = {};
 try { DONE = JSON.parse(localStorage.getItem(KD) || '{}') || {}; } catch (e) {}
 try { SMS  = JSON.parse(localStorage.getItem(KT) || '{}') || {}; } catch (e) {}
@@ -170,6 +177,18 @@ function cacheList(){
   try {
     localStorage.setItem(KL, JSON.stringify({ day: today(), total: TOTAL, queue: QUEUE, events: EVENTS }));
   } catch (e) {}
+}
+function cacheCold(){
+  try {
+    localStorage.setItem(KLC, JSON.stringify({ day: today(), total: COLD_TOTAL, queue: COLD }));
+  } catch (e) {}
+}
+function readColdCache(){
+  try {
+    var c = JSON.parse(localStorage.getItem(KLC) || 'null');
+    if (c && c.day === today() && c.queue && c.queue.length) return c;
+  } catch (e) {}
+  return null;
 }
 function readCache(){
   try {
@@ -600,7 +619,7 @@ function load(force){
   if (loading) return;
   loading = true;
   $('#sub').textContent = 'Loading';
-  var q = fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&limit=' + limit)
+  var q = fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&tier=confirmed&limit=' + limit)
             .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); });
   var e = fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&events=1')
             .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); })
@@ -608,7 +627,9 @@ function load(force){
   Promise.all([q, e]).then(function (res){
     load.retried = false;
     QUEUE = res[0].queue || []; TOTAL = res[0].total || QUEUE.length;
+    if (typeof res[0].cold_total === 'number') COLD_TOTAL = res[0].cold_total;
     EVENTS = res[1].events || [];
+    tabCounts();
     loading = false;
     cacheList();
     render();
@@ -633,6 +654,46 @@ function load(force){
     $('#list').appendChild(p);
     $('#sub').textContent = 'Not loaded';
   });
+}
+
+// The cold list. Ordered by whether there is a reason to ring that street
+// today, which lands everyone on the same street together, in number order.
+function loadCold(force){
+  if (!force){
+    var c = readColdCache();
+    if (c){ COLD = c.queue; COLD_TOTAL = c.total || COLD.length; render(); return; }
+  }
+  if (coldLoading) return;
+  coldLoading = true;
+  $('#sub').textContent = 'Loading the cold list';
+  fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&tier=cold&limit=' + coldLimit)
+    .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function (d){
+      coldLoading = false;
+      COLD = d.queue || [];
+      COLD_TOTAL = d.total || COLD.length;
+      cacheCold();
+      tabCounts();
+      render();
+    }, function (){
+      coldLoading = false;
+      if (tab !== 'cold') return;
+      $('#list').textContent = '';
+      var p = document.createElement('p');
+      p.className = 'msg err';
+      p.textContent = 'Could not load the cold list. Tap Refresh.';
+      $('#list').appendChild(p);
+      $('#sub').textContent = 'Not loaded';
+    });
+}
+
+// Put the real numbers on the two tabs so he can see at a glance how much
+// confirmed work is left before he has to fall back to cold calling.
+function tabCounts(){
+  var t = document.querySelector('#tabs button[data-tab="today"]');
+  var c = document.querySelector('#tabs button[data-tab="cold"]');
+  if (t) t.textContent = TOTAL ? 'Today (' + TOTAL + ')' : 'Today';
+  if (c) c.textContent = COLD_TOTAL ? 'Cold data (' + COLD_TOTAL.toLocaleString() + ')' : 'Cold data';
 }
 
 /* ------------------------------------------------------------------ render */
@@ -1148,6 +1209,26 @@ function renderList(){
     return;
   }
 
+  if (tab === 'cold'){
+    $('#bar').hidden = false;
+    var cpend = COLD.filter(function (c){ return !DONE[c.id]; });
+    var cdone = COLD.filter(function (c){ return DONE[c.id]; });
+    $('#count').textContent = cpend.length + ' to call, ' + cdone.length + ' done';
+    $('#more').hidden = COLD.length >= COLD_TOTAL;
+    $('#sub').textContent = COLD.length
+      ? 'Unverified data. The job is to confirm the name and number, one street at a time'
+      : 'Cold list';
+    if (!COLD.length){
+      var cp = document.createElement('p');
+      cp.className = 'msg';
+      cp.textContent = coldLoading ? 'Loading.' : 'Nothing in the cold list.';
+      list.appendChild(cp);
+      return;
+    }
+    cpend.concat(cdone).forEach(function (c){ list.appendChild(personCard(c)); });
+    return;
+  }
+
   if (tab === 'today'){
     $('#bar').hidden = false;
     // anyone already handled today drops to the bottom, and stays put while you work
@@ -1174,6 +1255,7 @@ $('#tabs').addEventListener('click', function (ev){
   var b = ev.target.closest('button[data-tab]');
   if (!b) return;
   tab = b.dataset.tab; PROP = null; PROP_PEOPLE = [];
+  if (tab === 'cold' && !COLD.length) loadCold();
   // changing tab means he is done searching
   FOUND = null; qSeq++; $('#q').value = ''; $('#qclear').hidden = true;
   Array.prototype.forEach.call(this.querySelectorAll('button'), function (x){
@@ -1181,8 +1263,14 @@ $('#tabs').addEventListener('click', function (ev){
   });
   render();
 });
-$('#more').addEventListener('click', function (){ limit = limit >= 200 ? 2000 : limit + 80; load(true); });
-$('#reload').addEventListener('click', function (){ limit = Math.max(limit, QUEUE.length); load(true); loadToday(); });
+$('#more').addEventListener('click', function (){
+  if (tab === 'cold'){ coldLimit = coldLimit >= 200 ? 2000 : coldLimit + 80; loadCold(true); return; }
+  limit = limit >= 200 ? 2000 : limit + 80; load(true);
+});
+$('#reload').addEventListener('click', function (){
+  if (tab === 'cold'){ coldLimit = Math.max(coldLimit, COLD.length); loadCold(true); loadToday(); return; }
+  limit = Math.max(limit, QUEUE.length); load(true); loadToday();
+});
 
 // Does he have work this phone has not sent yet
 function hasUnsent(){
