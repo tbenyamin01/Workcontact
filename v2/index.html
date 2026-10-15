@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-16a -->
+<!-- build 2026-10-16d -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -27,6 +27,16 @@ h1{font-size:22px;margin:0;font-weight:600}
 .tabs button{flex:none;font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--surface-2);
   color:var(--ink);border-radius:999px;padding:8px 15px;cursor:pointer;white-space:nowrap}
 .tabs button[aria-selected="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+#plan{display:block;width:100%;text-align:left;font:inherit;font-size:13px;line-height:1.35;
+  border:1px solid var(--line);border-left:3px solid var(--accent);background:var(--surface-2);
+  color:var(--ink);border-radius:8px;padding:8px 11px;margin:-4px 0 12px}
+#plan b{font-weight:600}
+#plan .next{color:var(--muted)}
+.subs{display:flex;gap:6px;margin:-6px 0 12px;overflow-x:auto;padding-bottom:2px}
+.subs button{flex:none;font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface-2);
+  color:var(--ink);border-radius:999px;padding:5px 11px}
+.subs button[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.subs .dot{color:var(--accent);font-weight:700}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:8px}
 .card.done{opacity:.52}
 .work{display:none}
@@ -122,10 +132,14 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 
   <div class="tabs" id="tabs">
     <button type="button" data-tab="today" aria-selected="true">Today</button>
-    <button type="button" data-tab="cold" aria-selected="false">Cold data</button>
     <button type="button" data-tab="sold" aria-selected="false">Just sold</button>
     <button type="button" data-tab="listed" aria-selected="false">Just listed</button>
+    <button type="button" data-tab="cold" aria-selected="false">Confirm data</button>
   </div>
+
+  <button type="button" id="plan" hidden></button>
+
+  <div class="subs" id="subs" hidden></div>
 
   <div class="tally" id="tally" hidden></div>
   <div class="bar" id="bar" hidden>
@@ -142,7 +156,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-16a';
+var BUILD = '2026-10-16d';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -159,10 +173,16 @@ var QUEUE = [], EVENTS = [], TOTAL = 0, tab = 'today', limit = 40, loading = fal
 // is finding out whether the name and number are even right. The cold list is
 // fetched the first time he opens that tab, never on startup.
 var COLD = [], COLD_TOTAL = 0, coldLimit = 40, coldLoading = false;
+// He works one suburb for a day or two, so the chosen suburb is remembered
+// across reloads. Empty string means every suburb at once.
+var COLD_SUBS = [], coldSub = '';
+// The three suburbs he is working. They lead the row and keep their order.
+var FOCUS = ['Wattle Grove', 'Moorebank', 'Chipping Norton'];
 var FOUND = null, qTimer = null, qSeq = 0;   // FOUND null means not searching
 var PROP = null, PROP_PEOPLE = [], propLoading = false;   // the property he has opened
 var KD = 'wl2done', KQ = 'wl2pending', KC = 'wl2conf', KL = 'wl2list', KP = 'wl2pos', KT = 'wl2sms', KX = 'wl2dial';
-var KLC = 'wl2coldlist';
+var KLC = 'wl2coldlist', KCS = 'wl2coldsub';
+try { coldSub = localStorage.getItem(KCS) || ''; } catch (e) {}
 var DONE = {}, PENDING = [], CONF = {}, SMS = {}, DIAL = {};
 try { DONE = JSON.parse(localStorage.getItem(KD) || '{}') || {}; } catch (e) {}
 try { SMS  = JSON.parse(localStorage.getItem(KT) || '{}') || {}; } catch (e) {}
@@ -180,13 +200,15 @@ function cacheList(){
 }
 function cacheCold(){
   try {
-    localStorage.setItem(KLC, JSON.stringify({ day: today(), total: COLD_TOTAL, queue: COLD }));
+    localStorage.setItem(KLC, JSON.stringify({
+      day: today(), sub: coldSub, total: COLD_TOTAL, queue: COLD, subs: COLD_SUBS }));
   } catch (e) {}
 }
 function readColdCache(){
   try {
     var c = JSON.parse(localStorage.getItem(KLC) || 'null');
-    if (c && c.day === today() && c.queue && c.queue.length) return c;
+    // a cache for a different suburb is no use, it would show the wrong list
+    if (c && c.day === today() && c.sub === coldSub && c.queue && c.queue.length) return c;
   } catch (e) {}
   return null;
 }
@@ -661,19 +683,26 @@ function load(force){
 function loadCold(force){
   if (!force){
     var c = readColdCache();
-    if (c){ COLD = c.queue; COLD_TOTAL = c.total || COLD.length; render(); return; }
+    if (c){
+      COLD = c.queue; COLD_TOTAL = c.total || COLD.length;
+      if (c.subs && c.subs.length) COLD_SUBS = c.subs;
+      renderSubs(); render(); return;
+    }
   }
   if (coldLoading) return;
   coldLoading = true;
   $('#sub').textContent = 'Loading the cold list';
-  fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&tier=cold&limit=' + coldLimit)
+  fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&tier=cold&limit=' + coldLimit
+        + (coldSub ? '&suburb=' + encodeURIComponent(coldSub) : ''))
     .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); })
     .then(function (d){
       coldLoading = false;
       COLD = d.queue || [];
-      COLD_TOTAL = d.total || COLD.length;
+      COLD_TOTAL = typeof d.total === 'number' ? d.total : COLD.length;
+      if (d.suburbs) COLD_SUBS = d.suburbs;
       cacheCold();
       tabCounts();
+      renderSubs();
       render();
     }, function (){
       coldLoading = false;
@@ -687,13 +716,135 @@ function loadCold(force){
     });
 }
 
+/* ------------------------------------------------------------------- day */
+/* His day, in his own words. 9 to 10 the top 40 across every suburb. 10 to 11
+   just sold and just listed, the ones who will convert or want keeping posted.
+   11 to 12 and 1 to 2 confirming data, one suburb at a time, stretching to 3 if
+   it is going well. 3 pm he is out the door knocking.
+
+   This is a prompt, never a lock. Every tab stays tappable all day.           */
+var DAY = [
+  { from: 0,    to: 9,    tab: 'today',  what: 'Top 40 at 9' },
+  { from: 9,    to: 10,   tab: 'today',  what: 'Top 40, every suburb' },
+  { from: 10,   to: 11,   tab: 'sold',   what: 'Just sold and just listed' },
+  { from: 11,   to: 12,   tab: 'cold',   what: 'Confirm data' },
+  { from: 12,   to: 13,   tab: null,     what: 'Break' },
+  { from: 13,   to: 15,   tab: 'cold',   what: 'Confirm data' },
+  { from: 15,   to: 24,   tab: null,     what: 'Out the door, door knocking' }
+];
+
+function dayBlock(){
+  var h = new Date().getHours() + new Date().getMinutes() / 60;
+  for (var i = 0; i < DAY.length; i++){
+    if (h >= DAY[i].from && h < DAY[i].to) return DAY[i];
+  }
+  return DAY[DAY.length - 1];
+}
+
+function renderPlan(){
+  var box = $('#plan');
+  if (!box) return;
+  // the plan is about the day's shape, it has no place over a search result
+  if (FOUND !== null || PROP){ box.hidden = true; return; }
+
+  var b = dayBlock();
+  var now = new Date();
+  var h = now.getHours() + now.getMinutes() / 60;
+  box.hidden = false;
+  box.textContent = '';
+
+  var lead = document.createElement('b');
+  if (h < 9) lead.textContent = 'Starts at 9. ' + b.what;
+  else if (!b.tab) lead.textContent = b.what;
+  else lead.textContent = 'Now: ' + b.what;
+  box.appendChild(lead);
+
+  // what is coming, so the hour does not run away from him
+  var nxt = null;
+  for (var i = 0; i < DAY.length; i++){
+    if (DAY[i].from > h && DAY[i].what !== b.what){ nxt = DAY[i]; break; }
+  }
+  if (nxt){
+    var sp = document.createElement('span');
+    sp.className = 'next';
+    var at = nxt.from > 12 ? (nxt.from - 12) + ' pm' : nxt.from + ' am';
+    sp.textContent = '  then ' + at + ', ' + nxt.what.toLowerCase();
+    box.appendChild(sp);
+  }
+
+  box.disabled = !b.tab || b.tab === tab;
+}
+
+$('#plan').addEventListener('click', function (){
+  var b = dayBlock();
+  if (!b.tab || b.tab === tab) return;
+  var btn = document.querySelector('#tabs button[data-tab="' + b.tab + '"]');
+  if (btn) btn.click();
+});
+
+// refreshed on the minute, so the hour he is in is always the real one
+setInterval(renderPlan, 60000);
+
+// One button per suburb, because a day or two is spent on each. The number is
+// how many are left to call there. A dot means at least one person in that
+// suburb has a sold or listed property nearby to open with, which is the
+// difference between a warm opener and a straight cold call.
+function renderSubs(){
+  var box = $('#subs');
+  if (!box) return;
+  var show = tab === 'cold' && FOUND === null && !PROP && COLD_SUBS.length > 0;
+  box.hidden = !show;
+  if (!show) { box.textContent = ''; return; }
+
+  box.textContent = '';
+  var all = COLD_SUBS.reduce(function (n, s){ return n + Number(s.n || 0); }, 0);
+
+  // The three he is actually working sit at the front, in his order, so they
+  // behave like three fixed tabs rather than drifting about as counts change.
+  var pinned = [];
+  FOCUS.forEach(function (name){
+    for (var i = 0; i < COLD_SUBS.length; i++){
+      if (COLD_SUBS[i].suburb === name){ pinned.push(COLD_SUBS[i]); return; }
+    }
+  });
+  var rest = COLD_SUBS.filter(function (r){ return FOCUS.indexOf(r.suburb) < 0; });
+
+  var rows = pinned
+    .concat([{ suburb: '', n: all, with_opener: 0, label: 'All suburbs' }])
+    .concat(rest);
+
+  rows.forEach(function (r){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.sub = r.suburb;
+    b.setAttribute('aria-selected', r.suburb === coldSub ? 'true' : 'false');
+    b.textContent = (r.label || r.suburb) + ' ' + Number(r.n || 0).toLocaleString();
+    if (Number(r.with_opener || 0) > 0){
+      var d = document.createElement('span');
+      d.className = 'dot';
+      d.textContent = ' \u2022';
+      b.appendChild(d);
+    }
+    b.addEventListener('click', function (){
+      if (coldSub === r.suburb) return;
+      coldSub = r.suburb;
+      try { localStorage.setItem(KCS, coldSub); } catch (e) {}
+      COLD = []; coldLimit = 40;
+      renderSubs();
+      loadCold();
+      window.scrollTo(0, 0);
+    });
+    box.appendChild(b);
+  });
+}
+
 // Put the real numbers on the two tabs so he can see at a glance how much
 // confirmed work is left before he has to fall back to cold calling.
 function tabCounts(){
   var t = document.querySelector('#tabs button[data-tab="today"]');
   var c = document.querySelector('#tabs button[data-tab="cold"]');
   if (t) t.textContent = TOTAL ? 'Today (' + TOTAL + ')' : 'Today';
-  if (c) c.textContent = COLD_TOTAL ? 'Cold data (' + COLD_TOTAL.toLocaleString() + ')' : 'Cold data';
+  if (c) c.textContent = COLD_TOTAL ? 'Confirm data (' + COLD_TOTAL.toLocaleString() + ')' : 'Confirm data';
 }
 
 /* ------------------------------------------------------------------ render */
@@ -1175,6 +1326,8 @@ function renderTally(){
 // sitting at the bottom of it where some paths would never reach it.
 function render(){
   renderList();
+  renderPlan();
+  renderSubs();
   syncNoteButtons();
 }
 function renderList(){
@@ -1216,12 +1369,14 @@ function renderList(){
     $('#count').textContent = cpend.length + ' to call, ' + cdone.length + ' done';
     $('#more').hidden = COLD.length >= COLD_TOTAL;
     $('#sub').textContent = COLD.length
-      ? 'Unverified data. The job is to confirm the name and number, one street at a time'
-      : 'Cold list';
+      ? (coldSub || 'Every suburb') + '. Unverified data, the job is to confirm the name and number'
+      : (coldLoading ? 'Loading' : 'Nothing left in ' + (coldSub || 'the cold list'));
     if (!COLD.length){
       var cp = document.createElement('p');
       cp.className = 'msg';
-      cp.textContent = coldLoading ? 'Loading.' : 'Nothing in the cold list.';
+      cp.textContent = coldLoading ? 'Loading.'
+        : coldSub ? 'Nothing left to call in ' + coldSub + ' today.'
+        : 'Nothing in the cold list.';
       list.appendChild(cp);
       return;
     }
