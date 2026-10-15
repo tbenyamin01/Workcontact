@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-16e -->
+<!-- build 2026-10-16f -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -156,7 +156,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-16e';
+var BUILD = '2026-10-16f';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -195,27 +195,30 @@ try { CONF = JSON.parse(localStorage.getItem(KC) || '{}') || {}; } catch (e) {}
 // halfway through. Only the Refresh button asks for a new order.
 function cacheList(){
   try {
-    localStorage.setItem(KL, JSON.stringify({ day: today(), total: TOTAL, queue: QUEUE, events: EVENTS }));
+    localStorage.setItem(KL, JSON.stringify({
+      day: today(), build: BUILD, total: TOTAL, queue: QUEUE, events: EVENTS }));
   } catch (e) {}
 }
 function cacheCold(){
   try {
     localStorage.setItem(KLC, JSON.stringify({
-      day: today(), sub: coldSub, total: COLD_TOTAL, queue: COLD, subs: COLD_SUBS }));
+      day: today(), build: BUILD, sub: coldSub,
+      total: COLD_TOTAL, queue: COLD, subs: COLD_SUBS }));
   } catch (e) {}
 }
 function readColdCache(){
   try {
     var c = JSON.parse(localStorage.getItem(KLC) || 'null');
     // a cache for a different suburb is no use, it would show the wrong list
-    if (c && c.day === today() && c.sub === coldSub && c.queue && c.queue.length) return c;
+    if (c && c.day === today() && c.build === BUILD
+        && c.sub === coldSub && c.queue && c.queue.length) return c;
   } catch (e) {}
   return null;
 }
 function readCache(){
   try {
     var c = JSON.parse(localStorage.getItem(KL) || 'null');
-    if (c && c.day === today() && c.queue && c.queue.length) return c;
+    if (c && c.day === today() && c.build === BUILD && c.queue && c.queue.length) return c;
   } catch (e) {}
   return null;
 }
