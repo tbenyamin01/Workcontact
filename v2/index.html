@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-16f -->
+<!-- build 2026-10-16g -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -156,7 +156,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-16f';
+var BUILD = '2026-10-16g';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -294,14 +294,35 @@ function shortDate(d){
 
 /* ------------------------------------------------------------------ messages
    Thomas's own wording. Do not reword these. No dashes anywhere.            */
+// 16 Oct 2026. The old version of this told everyone there had been "a bit of
+// traction around the corner from you", whether or not there had been. Four
+// people asked to be taken off the list in one morning and all four were
+// Moorebank, where we track no sales at all. They were being told about activity
+// that did not exist, so it read as a blast and they treated it as one.
+//
+// Now there are two. With a real sale nearby it names it, names their street,
+// and asks a question they can answer in three words. With nothing nearby it
+// makes no claim about the market whatsoever.
 function missedMsg(c){
+  if (!c.sold_addr) return missedPlainMsg(c);
+  var street = titled(c.street || 'your street');
   return salute(c, 'Hey') + NL
        + 'I tried to give you a call.' + NL + NL
-       + 'There has been a bit of traction around the corner from you. Places selling, '
-       + 'places coming up for sale. It moves what your home is worth right now.' + NL + NL
-       + 'If you want a better understanding of how it has affected your home, just let me know.' + NL + NL
-       + 'Kind regards' + NL
-       + 'Thomas Benyamin, Ausrealty';
+       + 'A place around the corner from you just sold. I have a few buyers who missed '
+       + 'out on it and still want this pocket. One of them asked about ' + street
+       + ' by name.' + NL + NL
+       + 'They are trying to get closer to family.' + NL + NL
+       + 'Have you had any thoughts about selling down the track? Or do you know anyone '
+       + 'on the street who might be?' + NL + NL
+       + 'Thomas, Ausrealty';
+}
+// No sale nearby means no story. Say the plain thing and leave them alone.
+function missedPlainMsg(c){
+  return salute(c, 'Hey') + NL
+       + 'I tried to give you a call. Nothing urgent.' + NL + NL
+       + 'I look after this pocket. If you ever want to know what your place is worth, '
+       + 'just ask me.' + NL + NL
+       + 'Thomas, Ausrealty';
 }
 function thanksMsg(c){
   return salute(c, 'Hi') + NL
