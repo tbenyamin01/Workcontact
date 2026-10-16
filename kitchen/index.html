@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Kitchen</title>
+<style>
+:root{
+  --bg:#fbfaf8; --surface:#fff; --surface-2:#f4f1ec; --ink:#23201c; --muted:#7b736a;
+  --line:#e5e0d8; --accent:#9a5b2d; --on-accent:#fff;
+}
+:root:not([data-theme="light"]) { }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#17150f; --surface:#211e17; --surface-2:#2a261e; --ink:#f0ece4; --muted:#a39a8d;
+    --line:#352f25; --accent:#d08a4e; --on-accent:#17150f;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#17150f; --surface:#211e17; --surface-2:#2a261e; --ink:#f0ece4; --muted:#a39a8d;
+  --line:#352f25; --accent:#d08a4e; --on-accent:#17150f;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.5 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding:0 16px 56px;-webkit-text-size-adjust:100%}
+.wrap{max-width:720px;margin:0 auto}
+header{padding:28px 0 10px}
+h1{margin:0;font-size:30px;letter-spacing:-.02em}
+.sub{color:var(--muted);font-size:14px;margin-top:4px}
+.tabs{display:flex;gap:6px;margin:16px 0 14px;overflow-x:auto;padding-bottom:2px}
+.tabs button{flex:none;font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);
+  background:var(--surface-2);color:var(--ink);border-radius:999px;padding:7px 14px}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+input[type=search]{width:100%;font:inherit;padding:11px 13px;border:1px solid var(--line);
+  border-radius:10px;background:var(--surface);color:var(--ink)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  padding:14px 16px;margin:10px 0}
+.card h2{margin:0;font-size:18px;letter-spacing:-.01em}
+.meta{color:var(--muted);font-size:13px;margin-top:3px}
+.macros{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap}
+.macros div{font-size:13px;color:var(--muted)}
+.macros b{display:block;font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums}
+.more{margin-top:11px;font:inherit;font-size:14px;font-weight:600;background:none;
+  border:0;color:var(--accent);padding:0;cursor:pointer}
+.body{display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
+.body.on{display:block}
+.body h3{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+  margin:14px 0 6px}
+.body h3:first-child{margin-top:0}
+ul,ol{margin:0;padding-left:20px}
+li{margin:4px 0}
+.note{margin-top:14px;padding:11px 13px;background:var(--surface-2);border-radius:10px;
+  font-size:14px;color:var(--ink)}
+footer{color:var(--muted);font-size:13px;text-align:center;padding:30px 0 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>The Kitchen</h1>
+  <div class="sub">17 recipes. Every one has been cooked, weighed and eaten.</div>
+</header>
+
+<input type="search" id="q" placeholder="Search a recipe or an ingredient" aria-label="Search recipes">
+
+<div class="tabs" id="tabs">
+  <button type="button" data-meal="" aria-selected="true">All</button>
+  <button type="button" data-meal="Breakfast" aria-selected="false">Breakfast</button>
+  <button type="button" data-meal="Lunch" aria-selected="false">Lunch</button>
+  <button type="button" data-meal="Dinner" aria-selected="false">Dinner</button>
+  <button type="button" data-meal="Prep" aria-selected="false">Prep</button>
+</div>
+
+<div id="list"></div>
+
+<footer>Macros are per serve.</footer>
+</div>
+
+<script>
+var R = [{"id": "r-oats", "name": "Overnight oats, mixed berry", "meal": "Breakfast", "min": 3, "k": 634, "p": 42, "c": 79, "f": 17, "tags": "night before", "ing": ["80 g rolled oats", "125 ml milk, just enough to cover", "1 scoop protein powder", "1 tbsp chia seeds", "1 cup mixed berries", "Cinnamon, as much as you like"], "meth": ["Oats, protein powder, chia and cinnamon in the jar first. Stir the powder through the DRY oats or it clumps", "Add the milk. Only enough to cover, about half a cup. The chia drinks a lot of it overnight so do not judge it when you make it", "Berries on top, do not stir them in", "Fridge overnight. Eat cold straight from the jar"], "note": "The coffee version is the same build with a level teaspoon of instant coffee and a teaspoon of honey instead of berries, about 600."}, {"id": "r-eggs-toast", "name": "Three eggs on toast", "meal": "Breakfast", "min": 4, "k": 406, "p": 27, "c": 34, "f": 17, "tags": "every day", "ing": ["3 whole eggs", "2 slices wholemeal bread", "Splash of milk", "Chilli and BBQ sauce if you want it"], "meth": ["Toast in", "Crack the eggs into a large mug with a splash of milk, beat with a fork", "Microwave 45 seconds, stir, 30 seconds, stir, another 15 if needed", "Tip onto the toast, fold, eat", "Use a big mug or it climbs out"], "note": "The toast is the part that matters, not the eggs. Eggs on their own leave you empty by eleven."}, {"id": "r-coffee-shake", "name": "Coffee protein shake", "meal": "Breakfast", "min": 2, "k": 310, "p": 39, "c": 15, "f": 12, "tags": "quick", "ing": ["1 cup milk", "30 g protein powder", "Double shot of coffee", "5 g creatine"], "meth": ["Everything in the shaker", "Shake", "Take it in the car"], "note": "39 g of protein for about $2. Set the shaker, the scoop and the creatine on the bench at night and you never forget it. Light milk instead of full cream takes it to about 255."}, {"id": "r-egg-burrito", "name": "Egg and chicken burrito", "meal": "Breakfast", "min": 8, "k": 545, "p": 51, "c": 35, "f": 21, "tags": "portable", "ing": ["1 wholemeal wrap", "3 eggs", "80 g cooked chicken breast, chopped", "0.5 cup slaw base", "1 tbsp hot sauce"], "meth": ["Beat the eggs in a mug and microwave 45 seconds, stir, 30 more", "Warm the wrap 15 seconds so it folds without cracking", "Eggs down the middle, chicken, slaw, hot sauce", "Fold the bottom up first, then the sides, then roll", "Wrap the bottom half in foil and it survives the drive"], "note": "51 g of protein before you leave the house, and you can eat it one handed in the car. Uses leftover chicken, so it costs nothing extra on the shop."}, {"id": "r-tuna-egg-toast", "name": "Tuna and egg on toast", "meal": "Breakfast", "min": 6, "k": 435, "p": 44, "c": 33, "f": 13, "tags": "cheap, quick", "ing": ["1 tin tuna in springwater, drained", "2 eggs", "2 slices wholemeal bread", "1 tbsp hot sauce", "Cracked pepper"], "meth": ["Toast in", "Eggs beaten in a mug, microwave 45 seconds, stir, 20 more", "Drain the tuna properly or the toast goes soggy", "Tuna on the toast, eggs over the top, hot sauce, pepper", "Springwater not oil. Oil tuna is 10 g more fat for the same protein"], "note": "44 g of protein for about two dollars and six minutes. The best protein per dollar in here."}, {"id": "r-shakshuka", "name": "Shakshuka", "meal": "Breakfast", "min": 20, "k": 615, "p": 33, "c": 63, "f": 25, "tags": "one pan, weekend", "ing": ["3 eggs", "1 tin chopped tomatoes", "1 onion, diced", "1 capsicum, diced", "0.5 tbsp olive oil", "2 slices wholemeal bread", "1 tsp paprika", "1 tsp cumin"], "meth": ["Onion and capsicum in the oil until soft, about 8 minutes", "Paprika and cumin in, 30 seconds, until you can smell them", "Tomatoes in, simmer 8 minutes until it thickens", "Make three wells and crack an egg into each", "Lid on, 5 minutes, until the whites set and the yolks are still soft", "Bread on the side for the sauce"], "note": "One pan, and the tomato base keeps three days, so the second and third serves take four minutes."}, {"id": "r-oat-pancakes", "name": "Protein pancake tray", "meal": "Breakfast", "min": 30, "k": 536, "p": 39, "c": 66, "f": 11, "tags": "makes 5, oven", "ing": ["1 whole bottle White Mill Pancake Mix and Shake, 375 g", "5 scoops protein powder", "5 eggs", "500 ml full cream milk"], "meth": ["OVEN 200C conventional, or 180C fan. Put it on now, it needs to be fully up to heat", "Line a large flat oven tray with baking paper, about 38 by 30 cm. Not a deep roasting dish, the batter needs to sit about 1.5 cm deep", "Do not use the shaker bottle. Big bowl", "Stir the protein powder through the dry mix FIRST, before anything wet. Powder meeting milk on its own goes to lumps you cannot beat out", "Make a well, 5 eggs in, then the milk slowly while you stir", "Rest the batter 5 minutes, it thickens as it sits", "Pour into the tray and tip it so it spreads to the corners", "BAKE 20 to 25 minutes. Done when the top springs back and a skewer comes out clean. The protein powder browns faster than plain batter so check at 18", "Cool in the tray 10 minutes, then lift the paper out and cut into 5 squares", "Stack with baking paper between, fridge up to 3 days, or freeze"], "note": "Oven is the right way for 5 serves, one tray instead of 15 flips. For the pan: medium LOW heat, 1 to 2 minutes a side, flip when the bubbles stop closing over. NO baking powder, the mix already has raising agents."}, {"id": "r-slaw-base", "name": "The slaw base", "meal": "Prep", "min": 25, "k": 60, "p": 3, "c": 10, "f": 1, "tags": "makes 5", "ing": ["1 red cabbage", "1 green cabbage", "1 kg carrots", "1 beetroot", "1 jar sauerkraut, from the fridge section"], "meth": ["Shred the cabbage and carrot", "Store in one big container, undressed", "Keeps 5 to 7 days and actually improves", "Add the sauerkraut and seeds on the day, never stored mixed"], "note": "Macros are per cup. Store it undressed or it is soggy by Tuesday."}, {"id": "r-sesame-dressing", "name": "Sesame soy dressing", "meal": "Prep", "min": 10, "k": 31, "p": 1, "c": 3, "f": 2, "tags": "makes a month", "ing": ["60 ml soy sauce, Kikkoman green cap", "60 ml rice vinegar", "90 ml water", "2 tbsp sugar", "30 ml TOASTED sesame oil", "3 tbsp ground toasted sesame seeds", "Half tsp onion powder"], "meth": ["Sugar, soy, vinegar and water in the jar first", "Shake until you cannot see any grains. Warm water makes this ten seconds", "Now add the sesame oil, the ground seeds and the onion powder", "Shake again", "Grind the seeds. That is the step that makes it taste like Kewpie instead of soy sauce", "Fridge. Shake before every use"], "note": "Macros are per 15 ml. One batch makes about 270 ml, which is a month."}, {"id": "r-bowl-chicken-rice", "name": "Slaw bowl, chicken and rice", "meal": "Lunch", "min": 5, "k": 540, "p": 53, "c": 59, "f": 7, "tags": "lean, prep", "ing": ["1.5 cups slaw base", "150 g chicken breast", "1 cup cooked rice", "2 tbsp sesame soy dressing"], "meth": ["Assemble cold", "Dressing on at the last minute"], "note": "The leanest lunch in here. Good on days with a restaurant dinner coming."}, {"id": "r-bowl-chicken-pasta", "name": "Slaw bowl, chicken and cold pasta", "meal": "Lunch", "min": 5, "k": 705, "p": 62, "c": 62, "f": 19, "tags": "prep", "ing": ["1.5 cups slaw base", "150 g chicken breast", "1 cup cooked pasta, cooled", "2 tbsp pumpkin seeds", "1 tbsp lentils", "2 tbsp sesame soy dressing"], "meth": ["Cook the pasta al dente, rinse cold, let it sit in the fridge", "Toss it through the dressing before it goes on the slaw", "Breast over thigh. Thigh is three times the fat for less protein"], "note": "Cooked and cooled pasta turns some of its starch into resistant starch, which feeds your gut rather than spiking you."}, {"id": "r-bowl-pork-lentil", "name": "Slaw bowl, lentils and pulled pork", "meal": "Lunch", "min": 5, "k": 815, "p": 62, "c": 68, "f": 33, "tags": "high fibre", "ing": ["2 cups slaw base", "1 tin lentils, rinsed", "130 g pulled pork", "2 tbsp sunflower seeds", "2 tbsp sesame soy dressing"], "meth": ["Rinse the tin. It takes about a third of the sodium off", "Layer it cold", "Seeds last so they stay crunchy"], "note": "Around 18 to 20 g of fibre in one bowl. The pork carries almost all the fat. Swapping it for chicken saves 16 g."}, {"id": "r-marryme-penne", "name": "Marry Me chicken penne", "meal": "Lunch", "min": 35, "k": 684, "p": 63, "c": 83, "f": 11, "tags": "makes 5, high protein", "ing": ["1 kg chicken breast, raw", "500 g penne, dry", "250 ml light evaporated milk", "3 tbsp tomato paste", "150 ml Italian tomato sauce", "1 tsp sugar", "1 tbsp vinegar", "400 ml beef stock", "1 tbsp olive oil", "1 tsp cornflour", "4 cloves garlic, crushed", "1 tsp sweet paprika", "1 tsp dried oregano", "half tsp chilli flakes"], "meth": ["PENNE. Big pot, rolling boil, salted. Packet time MINUS 2 minutes, so about 9 instead of 11. It keeps cooking in the sauce and again in the microwave all week. Save a cup of the water before you drain", "CHICKEN. HIGH heat, pan properly hot before it goes in. Strips, salt and pepper, 3 to 4 minutes a side until browned. Do it in two batches or it steams instead of browning. Out of the pan", "Drop to MEDIUM. Garlic in, 30 seconds, no longer or it burns", "TOMATO PASTE. Still MEDIUM. Fry it hard for 2 FULL MINUTES until it darkens and starts sticking to the pan. This is the most important step in the whole dish, it is what replaces the sundried tomatoes", "Paprika, oregano, chilli in, 30 seconds", "Italian sauce, sugar and vinegar in, stir, 1 minute", "Beef stock in. MEDIUM, uncovered, 8 to 10 minutes until it has reduced by half. TASTE before adding any salt, beef stock is already salty", "Drop to LOW. Stir the cornflour into the evaporated milk in a cup until there are no lumps, then pour it into the pan and stir. It will not split, but do not let it boil hard or it catches on the bottom", "LOW heat. Chicken and pasta back in, 2 to 3 minutes to warm through", "Loosen with the pasta water until it looks too wet. It thickens in the fridge", "Five containers. About 35 minutes start to finish"], "note": "Built on light evaporated milk rather than cream or yoghurt. It is creamier, it does not split, and there is no tang. Beef stock version, no sundried tomatoes, no cheese. REHEATING: splash of water, 90 seconds, stir, 60 more. No water and it goes grainy. If it tastes flat, a teaspoon of Dijon or a splash of soy."}, {"id": "r-chicken-rice-veg", "name": "Chicken, rice and veg", "meal": "Dinner", "min": 20, "k": 600, "p": 48, "c": 65, "f": 15, "tags": "lean", "ing": ["200 g chicken breast", "1.5 cups cooked rice", "Mixed vegetables"], "meth": ["Chicken just through, not a minute more", "Season properly, chicken breast punishes timidity"], "note": "The default dinner. Cheapest protein per dollar and the easiest to hit your numbers with."}, {"id": "r-steak-potato", "name": "Steak, potato and veg", "meal": "Dinner", "min": 25, "k": 680, "p": 55, "c": 55, "f": 25, "tags": "", "ing": ["220 g rump or eye fillet", "300 g potato", "Big serve of vegetables"], "meth": ["Potatoes roasting first, they take the longest", "Steak on a very hot pan, rest it for five minutes", "Resting is not optional, it is the difference between juicy and grey"], "note": "Eye fillet or rump over scotch. Scotch is the fattiest cut and no amount of cooking changes that."}, {"id": "r-schnitzel-slaw", "name": "Leftover schnitzel and slaw", "meal": "Lunch", "min": 2, "k": 630, "p": 38, "c": 30, "f": 34, "tags": "leftovers", "ing": ["Leftover chicken schnitzel", "Whatever slaw is left in the container", "Dressing"], "meth": ["Cold, straight from the fridge", "Swap the schnitzel for plain chicken and this drops to about 18 g of fat"], "note": "A savoury breakfast is completely legitimate and it uses up what is already in the fridge. The only issue is 34 g of fat before 8am."}, {"id": "r-banana", "name": "Banana", "meal": "Breakfast", "min": 0, "k": 105, "p": 1, "c": 27, "f": 0, "tags": "quick", "ing": ["1 banana"], "meth": [], "note": "50 cents, and it closes the gap between a fasted gym session and lunch."}];
+var meal = '', q = '';
+
+function el(t, c, txt){
+  var e = document.createElement(t);
+  if (c) e.className = c;
+  if (txt != null) e.textContent = txt;
+  return e;
+}
+
+function card(r){
+  var c = el('div', 'card');
+  c.appendChild(el('h2', null, r.name));
+  var bits = [r.meal];
+  if (r.min) bits.push(r.min + ' min');
+  if (r.tags) bits.push(r.tags);
+  c.appendChild(el('div', 'meta', bits.join('  \u00b7  ')));
+
+  var m = el('div', 'macros');
+  [['kcal', r.k], ['protein', r.p + ' g'], ['carbs', r.c + ' g'], ['fat', r.f + ' g']]
+    .forEach(function (x){
+      var d = el('div');
+      d.appendChild(el('b', null, x[1]));
+      d.appendChild(document.createTextNode(x[0]));
+      m.appendChild(d);
+    });
+  c.appendChild(m);
+
+  var body = el('div', 'body');
+  if (r.ing && r.ing.length){
+    body.appendChild(el('h3', null, 'What you need'));
+    var ul = el('ul');
+    r.ing.forEach(function (i){ ul.appendChild(el('li', null, i)); });
+    body.appendChild(ul);
+  }
+  if (r.meth && r.meth.length){
+    body.appendChild(el('h3', null, 'How'));
+    var ol = el('ol');
+    r.meth.forEach(function (i){ ol.appendChild(el('li', null, i)); });
+    body.appendChild(ol);
+  }
+  if (r.note) body.appendChild(el('div', 'note', r.note));
+
+  var b = el('button', 'more', 'Show me');
+  b.type = 'button';
+  b.addEventListener('click', function (){
+    var on = body.classList.toggle('on');
+    b.textContent = on ? 'Close' : 'Show me';
+  });
+  c.appendChild(b);
+  c.appendChild(body);
+  return c;
+}
+
+function render(){
+  var list = document.getElementById('list');
+  list.textContent = '';
+  var hay = function (r){
+    return (r.name + ' ' + r.meal + ' ' + r.tags + ' ' + (r.ing || []).join(' ')).toLowerCase();
+  };
+  var rows = R.filter(function (r){
+    if (meal && r.meal !== meal) return false;
+    if (q && hay(r).indexOf(q) < 0) return false;
+    return true;
+  });
+  if (!rows.length){
+    list.appendChild(el('p', 'meta', 'Nothing matches that.'));
+    return;
+  }
+  rows.forEach(function (r){ list.appendChild(card(r)); });
+}
+
+document.getElementById('tabs').addEventListener('click', function (ev){
+  var b = ev.target.closest('button[data-meal]');
+  if (!b) return;
+  meal = b.dataset.meal;
+  Array.prototype.forEach.call(this.querySelectorAll('button'), function (x){
+    x.setAttribute('aria-selected', x === b ? 'true' : 'false');
+  });
+  render();
+});
+
+document.getElementById('q').addEventListener('input', function (){
+  q = this.value.trim().toLowerCase();
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
