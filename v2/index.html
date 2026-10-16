@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-16o -->
+<!-- build 2026-10-16p -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -156,7 +156,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-16o';
+var BUILD = '2026-10-16p';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -343,12 +343,14 @@ function missedPlainMsg(c){
        + 'Do you know anyone on the street who would sell for the right price?' + NL + NL
        + 'Thomas, Ausrealty';
 }
+// They have just given him their time. No buyer pitch, no question to answer.
+// Anything else here reads as if the call was only ever a way in.
 function thanksMsg(c){
   return salute(c, 'Hi') + NL
-       + 'Appreciate your time on the phone.' + NL + NL
-       + 'Let me know if I can be of any further help to you, or to family and friends.' + NL + NL
-       + 'Warm regards' + NL
-       + 'Thomas Benyamin, Ausrealty';
+       + 'Thanks for your time on the phone.' + NL + NL
+       + 'If anything changes down the track, or someone on your street comes up, '
+       + 'I am easy to get hold of.' + NL + NL
+       + 'Thomas, Ausrealty';
 }
 // When he rings off the back of a specific sale, the text names that sale.
 function propMsg(c, e){
@@ -360,21 +362,22 @@ function propMsg(c, e){
     if (isGuide(e.status)){
       return salute(c, 'Hi') + ' ' + addr + ' is under offer'
            + (d ? '. ' + d : '')
-           + guideText(e.price, e.price_high)
-           + '. It is one of the closest homes to yours to sell, so I thought you would want to know. '
-           + 'Nothing needed from you. Thomas, Ausrealty.';
+           + guideText(e.price, e.price_high) + '.' + NL + NL
+           + buyerLine(true) + NL + NL
+           + 'Thomas, Ausrealty';
     }
     return salute(c, 'Hi') + ' ' + addr + ' just sold'
          + (e.price ? ' for ' + money(e.price) : '')
-         + (d ? '. ' + d : '')
-         + '. It is one of the closest homes to yours to sell recently, so I thought you would want to know. '
-         + 'Nothing needed from you. Thomas, Ausrealty.';
+         + (d ? '. ' + d : '') + '.' + NL + NL
+         + buyerLine(true) + NL + NL
+         + 'Thomas, Ausrealty';
   }
-  return salute(c, 'Hi') + ' ' + addr + ' has just come on the market'
+  return salute(c, 'Hi') + ' ' + addr + ' is for sale'
        + (d ? '. ' + d : '')
        + (e.price ? '. Guiding ' + money(e.price) + (e.price_high ? ' to ' + money(e.price_high) : '') : '')
-       + '. It is one of the closest homes to yours to come up, so worth watching what it sells for. '
-       + 'Thomas, Ausrealty.';
+       + '.' + NL + NL
+       + buyerLine(false) + NL + NL
+       + 'Thomas, Ausrealty';
 }
 
 // Keeps the note in his shape: TB- <what happened> <today>. Anything new
@@ -424,23 +427,34 @@ function isGuide(st){
   st = String(st || '').toLowerCase();
   return st === 'under offer' || st === 'under contract';
 }
+// One reason and one question, used by every property text. Sold and under offer
+// get "missed out", because somebody did. A place still for sale does not.
+function buyerLine(missedOut){
+  return (missedOut
+    ? 'I have buyers who missed out and still want this street.'
+    : 'I have buyers looking on your street right now.')
+    + ' Do you know anyone who would sell for the right price?';
+}
+
 function guideText(lo, hi){
   if (!lo) return '';
   return '. It was guiding ' + money(lo) + (hi ? ' to ' + money(hi) : '');
 }
 function soldNearMsg(c){
+  // Under offer is a guide, not a sale price. Quoting the guide as what it sold
+  // for is telling people a number that is not real.
   if (c.sold_price_is_guide || isGuide(c.sold_status)){
     return salute(c, 'Hi') + ' ' + titled(c.sold_addr) + ' is under offer'
          + (c.sold_detail ? '. ' + c.sold_detail : '')
-         + guideText(c.sold_price, c.sold_price_high)
-         + '. It is one of the closest homes to yours to sell, so I thought you would want to know. '
-         + 'Nothing needed from you. Thomas, Ausrealty.';
+         + guideText(c.sold_price, c.sold_price_high) + '.' + NL + NL
+         + buyerLine(true) + NL + NL
+         + 'Thomas, Ausrealty';
   }
   return salute(c, 'Hi') + ' ' + titled(c.sold_addr) + ' just sold'
        + (c.sold_price ? ' for ' + money(c.sold_price) : '')
-       + (c.sold_detail ? '. ' + c.sold_detail : '')
-       + '. It is one of the closest homes to yours to sell recently, so I thought you would want to know. '
-       + 'Nothing needed from you. Thomas, Ausrealty.';
+       + (c.sold_detail ? '. ' + c.sold_detail : '') + '.' + NL + NL
+       + buyerLine(true) + NL + NL
+       + 'Thomas, Ausrealty';
 }
 
 // The listing nearest this contact. This is the one he promised Paul Royston.
@@ -448,10 +462,10 @@ function listedNearMsg(c){
   var px = c.listed_price
     ? '. Guiding ' + money(c.listed_price) + (c.listed_price_high ? ' to ' + money(c.listed_price_high) : '')
     : '';
-  return salute(c, 'Hi') + ' ' + titled(c.listed_addr) + ' has just come on the market'
-       + (c.listed_detail ? '. ' + c.listed_detail : '') + px
-       + '. It is one of the closest homes to yours to come up, so worth watching what it sells for. '
-       + 'Thomas, Ausrealty.';
+  return salute(c, 'Hi') + ' ' + titled(c.listed_addr) + ' is for sale'
+       + (c.listed_detail ? '. ' + c.listed_detail : '') + px + '.' + NL + NL
+       + buyerLine(false) + NL + NL
+       + 'Thomas, Ausrealty';
 }
 
 function smsHref(phone, body){
