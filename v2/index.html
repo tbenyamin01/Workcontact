@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-16l -->
+<!-- build 2026-10-16m -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -156,7 +156,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-16l';
+var BUILD = '2026-10-16m';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -323,7 +323,7 @@ function missedMsg(c){
        + 'I tried to call you.' + NL + NL
        + opener + ' ' + buyers + ' One asked about ' + street
        + '. They want to be closer to family.' + NL + NL
-       + 'Any thoughts on selling? Or know anyone who would sell for the right price?' + NL + NL
+       + 'Do you know anyone on the street who would sell for the right price?' + NL + NL
        + 'Thomas, Ausrealty';
 }
 // Same story as the version above, minus the sale, for suburbs where no sold or
@@ -335,7 +335,7 @@ function missedPlainMsg(c){
        + 'I tried to call you.' + NL + NL
        + 'I have buyers asking about ' + street + ' by name. They want to be closer '
        + 'to family.' + NL + NL
-       + 'Any thoughts on selling? Or know anyone who would sell for the right price?' + NL + NL
+       + 'Do you know anyone on the street who would sell for the right price?' + NL + NL
        + 'Thomas, Ausrealty';
 }
 function thanksMsg(c){
