@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-16m -->
+<!-- build 2026-10-16n -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -156,7 +156,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-16m';
+var BUILD = '2026-10-16n';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -181,8 +181,10 @@ var FOCUS = ['Wattle Grove', 'Moorebank', 'Chipping Norton'];
 var FOUND = null, qTimer = null, qSeq = 0;   // FOUND null means not searching
 var PROP = null, PROP_PEOPLE = [], propLoading = false;   // the property he has opened
 var KD = 'wl2done', KQ = 'wl2pending', KC = 'wl2conf', KL = 'wl2list', KP = 'wl2pos', KT = 'wl2sms', KX = 'wl2dial';
-var KLC = 'wl2coldlist', KCS = 'wl2coldsub';
+var KLC = 'wl2coldlist', KCS = 'wl2coldsub', KTS = 'wl2topsub';
 try { coldSub = localStorage.getItem(KCS) || ''; } catch (e) {}
+var TOP_SUBS = [], topSub = '';
+try { topSub = localStorage.getItem(KTS) || ''; } catch (e) {}
 var DONE = {}, PENDING = [], CONF = {}, SMS = {}, DIAL = {};
 try { DONE = JSON.parse(localStorage.getItem(KD) || '{}') || {}; } catch (e) {}
 try { SMS  = JSON.parse(localStorage.getItem(KT) || '{}') || {}; } catch (e) {}
@@ -679,7 +681,8 @@ function load(force){
   if (loading) return;
   loading = true;
   $('#sub').textContent = 'Loading';
-  var q = fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&tier=confirmed&limit=' + limit)
+  var q = fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&tier=confirmed&limit=' + limit
+            + (topSub ? '&suburb=' + encodeURIComponent(topSub) : ''))
             .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); });
   var e = fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&events=1')
             .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); })
@@ -688,6 +691,7 @@ function load(force){
     load.retried = false;
     QUEUE = res[0].queue || []; TOTAL = res[0].total || QUEUE.length;
     if (typeof res[0].cold_total === 'number') COLD_TOTAL = res[0].cold_total;
+    if (res[0].suburbs) TOP_SUBS = res[0].suburbs;
     EVENTS = res[1].events || [];
     tabCounts();
     loading = false;
@@ -830,22 +834,25 @@ setInterval(renderPlan, 60000);
 function renderSubs(){
   var box = $('#subs');
   if (!box) return;
-  var show = tab === 'cold' && FOUND === null && !PROP && COLD_SUBS.length > 0;
+  var onTop = tab === 'today';
+  var list = onTop ? TOP_SUBS : COLD_SUBS;
+  var cur = onTop ? topSub : coldSub;
+  var show = (tab === 'cold' || onTop) && FOUND === null && !PROP && list.length > 0;
   box.hidden = !show;
   if (!show) { box.textContent = ''; return; }
 
   box.textContent = '';
-  var all = COLD_SUBS.reduce(function (n, s){ return n + Number(s.n || 0); }, 0);
+  var all = list.reduce(function (n, s){ return n + Number(s.n || 0); }, 0);
 
   // The three he is actually working sit at the front, in his order, so they
   // behave like three fixed tabs rather than drifting about as counts change.
   var pinned = [];
   FOCUS.forEach(function (name){
-    for (var i = 0; i < COLD_SUBS.length; i++){
-      if (COLD_SUBS[i].suburb === name){ pinned.push(COLD_SUBS[i]); return; }
+    for (var i = 0; i < list.length; i++){
+      if (list[i].suburb === name){ pinned.push(list[i]); return; }
     }
   });
-  var rest = COLD_SUBS.filter(function (r){ return FOCUS.indexOf(r.suburb) < 0; });
+  var rest = list.filter(function (r){ return FOCUS.indexOf(r.suburb) < 0; });
 
   var rows = pinned
     .concat([{ suburb: '', n: all, with_opener: 0, label: 'All suburbs' }])
@@ -855,7 +862,7 @@ function renderSubs(){
     var b = document.createElement('button');
     b.type = 'button';
     b.dataset.sub = r.suburb;
-    b.setAttribute('aria-selected', r.suburb === coldSub ? 'true' : 'false');
+    b.setAttribute('aria-selected', r.suburb === cur ? 'true' : 'false');
     b.textContent = (r.label || r.suburb) + ' ' + Number(r.n || 0).toLocaleString();
     if (Number(r.with_opener || 0) > 0){
       var d = document.createElement('span');
@@ -864,12 +871,21 @@ function renderSubs(){
       b.appendChild(d);
     }
     b.addEventListener('click', function (){
-      if (coldSub === r.suburb) return;
-      coldSub = r.suburb;
-      try { localStorage.setItem(KCS, coldSub); } catch (e) {}
-      COLD = []; coldLimit = 40;
-      renderSubs();
-      loadCold();
+      if (onTop){
+        if (topSub === r.suburb) return;
+        topSub = r.suburb;
+        try { localStorage.setItem(KTS, topSub); } catch (e) {}
+        limit = 40;
+        renderSubs();
+        load(true);
+      } else {
+        if (coldSub === r.suburb) return;
+        coldSub = r.suburb;
+        try { localStorage.setItem(KCS, coldSub); } catch (e) {}
+        COLD = []; coldLimit = 40;
+        renderSubs();
+        loadCold();
+      }
       window.scrollTo(0, 0);
     });
     box.appendChild(b);
@@ -1429,7 +1445,8 @@ function renderList(){
     var handled = QUEUE.filter(function (c){ return DONE[c.id]; });
     $('#count').textContent = pending.length + ' to call, ' + handled.length + ' done';
     $('#more').hidden = QUEUE.length >= TOTAL;
-    $('#sub').textContent = 'Showing ' + QUEUE.length + ' of ' + TOTAL + ', reordered daily';
+    $('#sub').textContent = (topSub ? topSub + '. ' : '')
+      + 'Showing ' + QUEUE.length + ' of ' + TOTAL + ', reordered daily';
     if (!QUEUE.length){
       var p = document.createElement('p'); p.className = 'msg'; p.textContent = 'Nothing due today.';
       list.appendChild(p);
