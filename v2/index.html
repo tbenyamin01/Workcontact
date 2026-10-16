@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-16h -->
+<!-- build 2026-10-16i -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -156,7 +156,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-16h';
+var BUILD = '2026-10-16i';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -316,12 +316,17 @@ function missedMsg(c){
        + 'on the street who might be?' + NL + NL
        + 'Thomas, Ausrealty';
 }
-// No sale nearby means no story. Say the plain thing and leave them alone.
+// Same story as the version above, minus the sale, for suburbs where no sold or
+// listed property is tracked yet. The buyer is the reason for the call either
+// way, so nothing here depends on having market data.
 function missedPlainMsg(c){
+  var street = titled(c.street || 'your street');
   return salute(c, 'Hey') + NL
-       + 'I tried to give you a call. Nothing urgent.' + NL + NL
-       + 'I look after this pocket. If you ever want to know what your place is worth, '
-       + "don't hesitate to ask." + NL + NL
+       + 'I tried to give you a call.' + NL + NL
+       + 'I have a few buyers at the moment who have asked about ' + street
+       + ' by name. They are trying to get closer to family.' + NL + NL
+       + 'Have you had any thoughts about selling down the track? Or do you know anyone '
+       + 'on the street who might be?' + NL + NL
        + 'Thomas, Ausrealty';
 }
 function thanksMsg(c){
