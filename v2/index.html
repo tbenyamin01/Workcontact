@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-16p -->
+<!-- build 2026-10-16r -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -156,7 +156,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-16p';
+var BUILD = '2026-10-16r';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -309,38 +309,36 @@ function shortDate(d){
 // and asks a question they can answer in three words. With nothing nearby it
 // makes no claim about the market whatsoever.
 function missedMsg(c){
-  var street = titled(c.street || 'your street');
-  var opener = '', buyers = '';
+  var opener = '', missed = false, onStreet = false;
 
   if (c.sold_addr){
     // Under offer is a deal not done. Never call it sold.
     opener = titled(c.sold_addr) + (isGuide(c.sold_status) ? ' is under offer.' : ' just sold.');
-    buyers = 'I have buyers who missed out and still want this street.';
+    missed = true;
+    onStreet = sameStreet(c, c.sold_addr);
   } else if (c.listed_addr){
     // nobody has missed out on something still for sale
     opener = titled(c.listed_addr) + ' is for sale.';
-    buyers = 'I have buyers looking on your street right now.';
+    missed = false;
+    onStreet = sameStreet(c, c.listed_addr);
   } else {
     return missedPlainMsg(c);
   }
 
   return salute(c, 'Hey') + NL
        + 'I tried to call you.' + NL + NL
-       + opener + ' ' + buyers + ' One asked about ' + street
-       + '. They want to be closer to family.' + NL + NL
-       + 'Do you know anyone on the street who would sell for the right price?' + NL + NL
+       + opener + NL + NL
+       + buyerLine(c, missed, onStreet) + NL + NL
        + 'Thomas, Ausrealty';
 }
 // Same story as the version above, minus the sale, for suburbs where no sold or
 // listed property is tracked yet. The buyer is the reason for the call either
 // way, so nothing here depends on having market data.
 function missedPlainMsg(c){
-  var street = titled(c.street || 'your street');
+  // no property named here, so naming their street cannot mislead anyone
   return salute(c, 'Hey') + NL
        + 'I tried to call you.' + NL + NL
-       + 'I have buyers asking about ' + street + ' by name. They want to be closer '
-       + 'to family.' + NL + NL
-       + 'Do you know anyone on the street who would sell for the right price?' + NL + NL
+       + buyerLine(c, false, true) + NL + NL
        + 'Thomas, Ausrealty';
 }
 // They have just given him their time. No buyer pitch, no question to answer.
@@ -360,23 +358,23 @@ function propMsg(c, e){
   if (sold){
     // Under offer means a guide, not a sale price. Never quote a guide as what it sold for.
     if (isGuide(e.status)){
-      return salute(c, 'Hi') + ' ' + addr + ' is under offer'
+      return salute(c, 'Hey') + ' ' + addr + ' is under offer'
            + (d ? '. ' + d : '')
            + guideText(e.price, e.price_high) + '.' + NL + NL
-           + buyerLine(true) + NL + NL
+           + buyerLine(c, true, sameStreet(c, addr)) + NL + NL
            + 'Thomas, Ausrealty';
     }
-    return salute(c, 'Hi') + ' ' + addr + ' just sold'
+    return salute(c, 'Hey') + ' ' + addr + ' just sold'
          + (e.price ? ' for ' + money(e.price) : '')
          + (d ? '. ' + d : '') + '.' + NL + NL
-         + buyerLine(true) + NL + NL
+         + buyerLine(c, true, sameStreet(c, addr)) + NL + NL
          + 'Thomas, Ausrealty';
   }
-  return salute(c, 'Hi') + ' ' + addr + ' is for sale'
+  return salute(c, 'Hey') + ' ' + addr + ' is for sale'
        + (d ? '. ' + d : '')
        + (e.price ? '. Guiding ' + money(e.price) + (e.price_high ? ' to ' + money(e.price_high) : '') : '')
        + '.' + NL + NL
-       + buyerLine(false) + NL + NL
+       + buyerLine(c, false, sameStreet(c, addr)) + NL + NL
        + 'Thomas, Ausrealty';
 }
 
@@ -427,13 +425,41 @@ function isGuide(st){
   st = String(st || '').toLowerCase();
   return st === 'under offer' || st === 'under contract';
 }
-// One reason and one question, used by every property text. Sold and under offer
-// get "missed out", because somebody did. A place still for sale does not.
-function buyerLine(missedOut){
-  return (missedOut
-    ? 'I have buyers who missed out and still want this street.'
-    : 'I have buyers looking on your street right now.')
-    + ' Do you know anyone who would sell for the right price?';
+// The reason and the question, shared by every property text.
+//
+// It names THEIR street, not the street the sale was on. Those are usually not
+// the same street, and the old wording said "this street" which pointed at the
+// wrong one. Whoever reads it should see the name of the road they live on.
+//
+// Sold and under offer get "missed out", because somebody did. A place still for
+// sale does not.
+// '26 Woburn Abbey Court' -> 'woburn abbey court'. Unit numbers and letters off
+// the front, so 14/20 Continua Court and 3 Continua Court come out the same.
+function streetOf(addr){
+  return String(addr || '')
+    .replace(/^\s*[\w\/-]*\d[\w\/-]*\s+/, '')
+    .toLowerCase().replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
+}
+function sameStreet(c, addr){
+  var a = streetOf(addr), b = streetOf('1 ' + ((c && c.street) || ''));
+  return !!a && !!b && a === b;
+}
+
+// The reason and the question, shared by every property text.
+//
+// It names their street ONLY when the property really is on it. Otherwise it
+// names the suburb. A message that says "on your street" beside an address the
+// reader knows is three roads away reads as a template, and a template is what
+// gets him asked to stop texting.
+function buyerLine(c, missedOut, onTheirStreet){
+  var st = titled((c && c.street) || '');
+  var sub = titled((c && c.suburb) || '');
+  var where = (onTheirStreet && st) ? ' on your street, ' + st
+            : sub ? ' into ' + sub
+            : ' into your area';
+  return 'We have a few buyers who ' + (missedOut ? 'missed out and ' : '')
+    + 'want to move closer to their family' + where + '.' + NL + NL
+    + 'Do you know anyone who would sell for the right price?';
 }
 
 function guideText(lo, hi){
@@ -444,16 +470,16 @@ function soldNearMsg(c){
   // Under offer is a guide, not a sale price. Quoting the guide as what it sold
   // for is telling people a number that is not real.
   if (c.sold_price_is_guide || isGuide(c.sold_status)){
-    return salute(c, 'Hi') + ' ' + titled(c.sold_addr) + ' is under offer'
+    return salute(c, 'Hey') + ' ' + titled(c.sold_addr) + ' is under offer'
          + (c.sold_detail ? '. ' + c.sold_detail : '')
          + guideText(c.sold_price, c.sold_price_high) + '.' + NL + NL
-         + buyerLine(true) + NL + NL
+         + buyerLine(c, true, sameStreet(c, addr)) + NL + NL
          + 'Thomas, Ausrealty';
   }
-  return salute(c, 'Hi') + ' ' + titled(c.sold_addr) + ' just sold'
+  return salute(c, 'Hey') + ' ' + titled(c.sold_addr) + ' just sold'
        + (c.sold_price ? ' for ' + money(c.sold_price) : '')
        + (c.sold_detail ? '. ' + c.sold_detail : '') + '.' + NL + NL
-       + buyerLine(true) + NL + NL
+       + buyerLine(c, true, sameStreet(c, c.sold_addr)) + NL + NL
        + 'Thomas, Ausrealty';
 }
 
@@ -462,9 +488,9 @@ function listedNearMsg(c){
   var px = c.listed_price
     ? '. Guiding ' + money(c.listed_price) + (c.listed_price_high ? ' to ' + money(c.listed_price_high) : '')
     : '';
-  return salute(c, 'Hi') + ' ' + titled(c.listed_addr) + ' is for sale'
+  return salute(c, 'Hey') + ' ' + titled(c.listed_addr) + ' is for sale'
        + (c.listed_detail ? '. ' + c.listed_detail : '') + px + '.' + NL + NL
-       + buyerLine(false) + NL + NL
+       + buyerLine(c, false, sameStreet(c, c.listed_addr)) + NL + NL
        + 'Thomas, Ausrealty';
 }
 
