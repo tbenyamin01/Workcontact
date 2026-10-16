@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-16i -->
+<!-- build 2026-10-16j -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -156,7 +156,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-16i';
+var BUILD = '2026-10-16j';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -304,13 +304,24 @@ function shortDate(d){
 // and asks a question they can answer in three words. With nothing nearby it
 // makes no claim about the market whatsoever.
 function missedMsg(c){
-  if (!c.sold_addr) return missedPlainMsg(c);
   var street = titled(c.street || 'your street');
+  var opener = '', buyers = '';
+
+  if (c.sold_addr){
+    // Under offer is a deal not done. Never call it sold.
+    opener = titled(c.sold_addr) + (isGuide(c.sold_status) ? ' is under offer.' : ' just sold.');
+    buyers = 'I have a few buyers who missed out on it and still want this pocket.';
+  } else if (c.listed_addr){
+    // nobody has missed out on something still for sale
+    opener = titled(c.listed_addr) + ' has just come up for sale.';
+    buyers = 'I have a few buyers looking in this pocket right now.';
+  } else {
+    return missedPlainMsg(c);
+  }
+
   return salute(c, 'Hey') + NL
        + 'I tried to give you a call.' + NL + NL
-       + 'A place around the corner from you just sold. I have a few buyers who missed '
-       + 'out on it and still want this pocket. One of them asked about ' + street
-       + ' by name.' + NL + NL
+       + opener + ' ' + buyers + ' One of them asked about ' + street + ' by name.' + NL + NL
        + 'They are trying to get closer to family.' + NL + NL
        + 'Have you had any thoughts about selling down the track? Or do you know anyone '
        + 'on the street who might be?' + NL + NL
