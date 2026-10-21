@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-16r -->
+<!-- build 2026-10-21a -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -109,6 +109,17 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 .evbtn:active{background:var(--surface-2)}
 .go{grid-column:1/3;justify-self:start;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--brass);margin-top:4px}
 .chip.back{cursor:pointer;background:var(--surface-2);color:var(--ink);text-transform:none;letter-spacing:0;font-size:13px;padding:7px 12px;align-self:flex-start}
+.evrow{position:relative;border-top:1px solid var(--line)}
+.evrow:first-child{border-top:0}
+.evrow .ev{border-top:0;padding-right:92px}
+.evrow.evdone{background:var(--surface-2)}
+.evrow.evdone .ev{opacity:.6}
+.evrow.evdone .ev b{text-decoration:line-through}
+.evtick{position:absolute;right:0;bottom:10px;cursor:pointer;font:inherit;
+  font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  padding:5px 9px;border-radius:5px;border:1px solid var(--line);
+  background:transparent;color:var(--muted)}
+.evrow.evdone .evtick{color:var(--good);border-color:var(--good);opacity:1}
 .ev:first-child{border-top:0}
 .ev b{font-weight:600}
 .ev .p{font-variant-numeric:tabular-nums;font-weight:600}
@@ -156,7 +167,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-16r';
+var BUILD = '2026-10-21a';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -181,7 +192,7 @@ var FOCUS = ['Wattle Grove', 'Moorebank', 'Chipping Norton'];
 var FOUND = null, qTimer = null, qSeq = 0;   // FOUND null means not searching
 var PROP = null, PROP_PEOPLE = [], propLoading = false;   // the property he has opened
 var KD = 'wl2done', KQ = 'wl2pending', KC = 'wl2conf', KL = 'wl2list', KP = 'wl2pos', KT = 'wl2sms', KX = 'wl2dial';
-var KLC = 'wl2coldlist', KCS = 'wl2coldsub', KTS = 'wl2topsub';
+var KLC = 'wl2coldlist', KCS = 'wl2coldsub', KTS = 'wl2topsub', KEV = 'wl2evdone';
 try { coldSub = localStorage.getItem(KCS) || ''; } catch (e) {}
 var TOP_SUBS = [], topSub = '';
 try { topSub = localStorage.getItem(KTS) || ''; } catch (e) {}
@@ -191,6 +202,11 @@ try { SMS  = JSON.parse(localStorage.getItem(KT) || '{}') || {}; } catch (e) {}
 try { DIAL = JSON.parse(localStorage.getItem(KX) || '{}') || {}; } catch (e) {}
 try { PENDING = JSON.parse(localStorage.getItem(KQ) || '[]') || []; } catch (e) {}
 try { CONF = JSON.parse(localStorage.getItem(KC) || '{}') || {}; } catch (e) {}
+// Properties he has called through. Not wiped overnight: the calls were made,
+// so it stays at the bottom until he taps it back.
+var EVDONE = {};
+try { EVDONE = JSON.parse(localStorage.getItem(KEV) || '{}') || {}; } catch (e) {}
+function saveEvDone(){ try { localStorage.setItem(KEV, JSON.stringify(EVDONE)); } catch (e) {} }
 
 // The day's list is kept as it was. Coming back from Messages, or from ten
 // minutes doing something else, must not reshuffle the forty people he is
@@ -473,7 +489,7 @@ function soldNearMsg(c){
     return salute(c, 'Hey') + ' ' + titled(c.sold_addr) + ' is under offer'
          + (c.sold_detail ? '. ' + c.sold_detail : '')
          + guideText(c.sold_price, c.sold_price_high) + '.' + NL + NL
-         + buyerLine(c, true, sameStreet(c, addr)) + NL + NL
+         + buyerLine(c, true, sameStreet(c, c.sold_addr)) + NL + NL
          + 'Thomas, Ausrealty';
   }
   return salute(c, 'Hey') + ' ' + titled(c.sold_addr) + ' just sold'
@@ -1248,11 +1264,16 @@ function eventRows(kind){
   // Newest first. He wants to be the first agent on the phone when something
   // sells, so a big sale from August must not sit above yesterday's.
   rows.sort(function (a, b){
+    // called through drops to the bottom, newest first inside each half
+    var fa = EVDONE[a.id] ? 1 : 0, fb = EVDONE[b.id] ? 1 : 0;
+    if (fa !== fb) return fa - fb;
     var da = a.event_date || a.first_seen || '', db = b.event_date || b.first_seen || '';
     if (da !== db) return da < db ? 1 : -1;
     return (b.reach || 0) - (a.reach || 0);
   });
   rows.forEach(function (e){
+    var wrap = document.createElement('div');
+    wrap.className = 'evrow' + (EVDONE[e.id] ? ' evdone' : '');
     var r = document.createElement('button');
     r.type = 'button'; r.className = 'ev evbtn';
     var a = document.createElement('b');
@@ -1269,7 +1290,20 @@ function eventRows(kind){
                       (e.reach || 0) + ' to call'].filter(Boolean).join('  ·  ');
     r.append(a, p, d, go);
     r.addEventListener('click', function (){ openProperty(e); });
-    box.appendChild(r);
+
+    var tick = document.createElement('button');
+    tick.type = 'button'; tick.className = 'evtick';
+    tick.textContent = EVDONE[e.id] ? 'Called' : 'Done';
+    tick.addEventListener('click', function (ev){
+      ev.stopPropagation();
+      if (EVDONE[e.id]) delete EVDONE[e.id];
+      else EVDONE[e.id] = today();
+      saveEvDone();
+      render();
+    });
+
+    wrap.append(r, tick);
+    box.appendChild(wrap);
   });
   return box;
 }
@@ -1504,7 +1538,10 @@ function renderList(){
     EVENTS.forEach(function (e){ if (e.suburb) covered[e.suburb] = 1; });
     var have = Object.keys(covered).sort();
     var missing = FOCUS.filter(function (n){ return !covered[n]; });
-    $('#sub').textContent = EVENTS.length + ' properties tracked'
+    var shown = EVENTS.filter(function (e){ return tab === 'sold' ? isSold(e) : !isSold(e); });
+    var left = shown.filter(function (e){ return !EVDONE[e.id]; }).length;
+    $('#sub').textContent = left + ' to call through, '
+      + (shown.length - left) + ' done. ' + EVENTS.length + ' properties tracked'
       + (have.length ? ', ' + have.join(' and ') : '')
       + (missing.length ? '. No data yet for ' + missing.join(' or ')
                         + ', needs a Pricefinder export' : '');
