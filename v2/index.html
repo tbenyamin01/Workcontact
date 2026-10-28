@@ -214,6 +214,10 @@ var EVDONE = {};
 try { EVDONE = JSON.parse(localStorage.getItem(KEV) || '{}') || {}; } catch (e) {}
 function saveEvDone(){ try { localStorage.setItem(KEV, JSON.stringify(EVDONE)); } catch (e) {} }
 
+// True when the last properties fetch failed. Kept apart from "no events",
+// because an empty list and a dropout look the same and must not read the same.
+var EV_FAILED = false;
+
 // Which suburb the two property tabs are showing. '' is all of them.
 // He asks about one suburb at a time, and three mixed together buried the
 // Moorebank sales he was looking for.
@@ -778,16 +782,19 @@ function load(force){
             .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); });
   var e = fetch(API + '?t=' + encodeURIComponent(TOKEN) + '&events=1')
             .then(function (r){ return r.ok ? r.json() : Promise.reject(r.status); })
-            .catch(function (){ return { events: [] }; });
+            .catch(function (){ return { events: null, failed: true }; });
   Promise.all([q, e]).then(function (res){
     load.retried = false;
     QUEUE = res[0].queue || []; TOTAL = res[0].total || QUEUE.length;
     if (typeof res[0].cold_total === 'number') COLD_TOTAL = res[0].cold_total;
     if (res[0].suburbs) TOP_SUBS = res[0].suburbs;
-    EVENTS = res[1].events || [];
+    EV_FAILED = !!res[1].failed;
+    // On a failure keep the properties already in hand rather than blanking the
+    // two tabs, and do not write the empty list to the cache.
+    if (!EV_FAILED) EVENTS = res[1].events || [];
     tabCounts();
     loading = false;
-    cacheList();
+    if (!EV_FAILED) cacheList();
     render();
     setTimeout(restorePos, 60);
   }, function (status){
@@ -1599,6 +1606,14 @@ function renderList(){
     var missing = FOCUS.filter(function (n){ return !covered[n]; });
     var shown = evVisible(tab);
     var left = shown.filter(function (e){ return !EVDONE[e.id]; }).length;
+    if (EV_FAILED && !EVENTS.length){
+      $('#sub').textContent = 'Could not load the properties. Check your signal and tap Refresh.';
+      var fail = document.createElement('div'); fail.className = 'card';
+      var fp = document.createElement('p'); fp.className = 'msg err';
+      fp.textContent = 'The property list did not load. This is not the same as nothing having sold. Tap Refresh.';
+      fail.appendChild(fp); list.appendChild(fail);
+      return;
+    }
     $('#sub').textContent = left + ' to call through, '
       + (shown.length - left) + ' done'
       + (EVSUB ? ' in ' + EVSUB : '') + '. ' + EVENTS.length + ' properties tracked'
