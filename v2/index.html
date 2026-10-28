@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Work list</title>
-<!-- build 2026-10-21a -->
+<!-- build 2026-10-28a -->
 <style>
 :root{
   --ground:#ECEEF0;--surface:#fff;--surface-2:#F4F5F7;--ink:#17212C;--muted:#5A6572;--line:#D6DBE1;
@@ -109,6 +109,11 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 .evbtn:active{background:var(--surface-2)}
 .go{grid-column:1/3;justify-self:start;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--brass);margin-top:4px}
 .chip.back{cursor:pointer;background:var(--surface-2);color:var(--ink);text-transform:none;letter-spacing:0;font-size:13px;padding:7px 12px;align-self:flex-start}
+.evsubs{display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line)}
+.evsub{font-size:12px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;
+  border:1px solid var(--line);color:var(--muted);background:var(--surface-2);line-height:1.3}
+.evsub.on{color:var(--on-accent);background:var(--brass);border-color:var(--brass)}
+.evsub .n{font-variant-numeric:tabular-nums;opacity:.75;margin-left:4px;font-weight:500}
 .evrow{position:relative;border-top:1px solid var(--line)}
 .evrow:first-child{border-top:0}
 .evrow .ev{border-top:0;padding-right:92px}
@@ -167,7 +172,7 @@ textarea{font:inherit;font-size:14px;width:100%;margin-top:8px;background:var(--
 // Bumped with every publish. The page compares this against whatever the server
 // is actually serving, because a phone will happily run a cached copy for days
 // and he has no way of knowing. This is what stops that.
-var BUILD = '2026-10-21a';
+var BUILD = '2026-10-28a';
 
 var API   = 'https://zvrtauvwyztlhjacticg.supabase.co/functions/v1/worklist';
 var TOKEN = 'f3f005d6-105b-4b64-8143-27eb5f4c6445';
@@ -192,7 +197,8 @@ var FOCUS = ['Wattle Grove', 'Moorebank', 'Chipping Norton'];
 var FOUND = null, qTimer = null, qSeq = 0;   // FOUND null means not searching
 var PROP = null, PROP_PEOPLE = [], propLoading = false;   // the property he has opened
 var KD = 'wl2done', KQ = 'wl2pending', KC = 'wl2conf', KL = 'wl2list', KP = 'wl2pos', KT = 'wl2sms', KX = 'wl2dial';
-var KLC = 'wl2coldlist', KCS = 'wl2coldsub', KTS = 'wl2topsub', KEV = 'wl2evdone';
+var KLC = 'wl2coldlist', KCS = 'wl2coldsub', KTS = 'wl2topsub', KEV = 'wl2evdone',
+    KES = 'wl2evsub';
 try { coldSub = localStorage.getItem(KCS) || ''; } catch (e) {}
 var TOP_SUBS = [], topSub = '';
 try { topSub = localStorage.getItem(KTS) || ''; } catch (e) {}
@@ -207,6 +213,31 @@ try { CONF = JSON.parse(localStorage.getItem(KC) || '{}') || {}; } catch (e) {}
 var EVDONE = {};
 try { EVDONE = JSON.parse(localStorage.getItem(KEV) || '{}') || {}; } catch (e) {}
 function saveEvDone(){ try { localStorage.setItem(KEV, JSON.stringify(EVDONE)); } catch (e) {} }
+
+// Which suburb the two property tabs are showing. '' is all of them.
+// He asks about one suburb at a time, and three mixed together buried the
+// Moorebank sales he was looking for.
+var EVSUB = '';
+try { EVSUB = localStorage.getItem(KES) || ''; } catch (e) {}
+function setEvSub(v){
+  EVSUB = v || '';
+  try { if (EVSUB) localStorage.setItem(KES, EVSUB); else localStorage.removeItem(KES); } catch (e) {}
+  render();
+}
+// Rows for one tab, before the suburb filter. Used for both the chip counts
+// and the list itself, so the numbers on the chips always match what you get.
+function evOfKind(kind){
+  return EVENTS.filter(function (e){ return kind === 'sold' ? isSold(e) : !isSold(e); });
+}
+function evVisible(kind){
+  return evOfKind(kind).filter(function (e){ return !EVSUB || e.suburb === EVSUB; });
+}
+// "a, b and c" instead of "a and b and c"
+function andList(a){
+  if (!a.length) return '';
+  if (a.length === 1) return a[0];
+  return a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+}
 
 // The day's list is kept as it was. Coming back from Messages, or from ten
 // minutes doing something else, must not reshuffle the forty people he is
@@ -1254,10 +1285,38 @@ function detailOf(e){
 function eventRows(kind){
   var box = document.createElement('div');
   box.className = 'card';
-  var rows = EVENTS.filter(function (e){ return kind === 'sold' ? isSold(e) : !isSold(e); });
+  var all = evOfKind(kind);
+
+  // One chip per suburb that actually has something in this tab, plus All.
+  var bySub = {};
+  all.forEach(function (e){ if (e.suburb) bySub[e.suburb] = (bySub[e.suburb] || 0) + 1; });
+  var subNames = Object.keys(bySub).sort();
+  if (subNames.length > 1){
+    var bar = document.createElement('div'); bar.className = 'evsubs';
+    [''].concat(subNames).forEach(function (name){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'evsub' + (EVSUB === name ? ' on' : '');
+      b.textContent = name || 'All';
+      var n = document.createElement('span'); n.className = 'n';
+      n.textContent = name ? bySub[name] : all.length;
+      b.appendChild(n);
+      b.addEventListener('click', function (){ setEvSub(name); });
+      bar.appendChild(b);
+    });
+    box.appendChild(bar);
+  }
+
+  var rows = all.filter(function (e){ return !EVSUB || e.suburb === EVSUB; });
   if (!rows.length){
     var p = document.createElement('p'); p.className = 'msg';
-    p.textContent = kind === 'sold' ? 'No sales recorded yet.' : 'Nothing on the market yet.';
+    if (EVSUB && all.length){
+      p.textContent = kind === 'sold'
+        ? 'Nothing sold in ' + EVSUB + ' in the last month. Tap All to see the other suburbs.'
+        : 'Nothing on the market in ' + EVSUB + '. Tap All to see the other suburbs.';
+    } else {
+      p.textContent = kind === 'sold' ? 'No sales recorded yet.' : 'Nothing on the market yet.';
+    }
     box.appendChild(p);
     return box;
   }
@@ -1538,11 +1597,12 @@ function renderList(){
     EVENTS.forEach(function (e){ if (e.suburb) covered[e.suburb] = 1; });
     var have = Object.keys(covered).sort();
     var missing = FOCUS.filter(function (n){ return !covered[n]; });
-    var shown = EVENTS.filter(function (e){ return tab === 'sold' ? isSold(e) : !isSold(e); });
+    var shown = evVisible(tab);
     var left = shown.filter(function (e){ return !EVDONE[e.id]; }).length;
     $('#sub').textContent = left + ' to call through, '
-      + (shown.length - left) + ' done. ' + EVENTS.length + ' properties tracked'
-      + (have.length ? ', ' + have.join(' and ') : '')
+      + (shown.length - left) + ' done'
+      + (EVSUB ? ' in ' + EVSUB : '') + '. ' + EVENTS.length + ' properties tracked'
+      + (have.length ? ', ' + andList(have) : '')
       + (missing.length ? '. No data yet for ' + missing.join(' or ')
                         + ', needs a Pricefinder export' : '');
     list.appendChild(eventRows(tab));
